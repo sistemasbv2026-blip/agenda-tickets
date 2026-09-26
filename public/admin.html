@@ -55,6 +55,8 @@
   </style>
 </head>
 <body>
+  <!-- Elemento de audio pre-cargado para alertas de nuevos tickets -->
+  <audio id="alert-audio" src="/chime.wav" preload="auto"></audio>
 
   <!-- Encabezado Admin -->
   <header class="app-header">
@@ -66,7 +68,8 @@
       </div>
     </a>
     <nav class="main-nav">
-      <button type="button" id="btn-sound-toggle" class="btn btn-secondary btn-sm" title="Activar o silenciar sonido cuando entran nuevos tickets">🔔 Sonido: ON</button>
+      <button type="button" id="btn-sound-toggle" class="btn btn-secondary btn-sm" title="Activar o silenciar sonido">🔔 Sonido: ON</button>
+      <button type="button" id="btn-sound-test" class="btn btn-secondary btn-sm" title="Probar cómo suena la campana de alerta ahora mismo">🔊 Probar Sonido</button>
       <button type="button" id="btn-notif-toggle" class="btn btn-secondary btn-sm" title="Activar alertas emergentes en pantalla / celular">📲 Notificaciones</button>
       <button type="button" id="btn-open-monthly" class="btn btn-primary btn-sm">📊 Reporte Mensual</button>
       <a href="/" target="_blank" class="nav-link">↗ Portal Público</a>
@@ -578,6 +581,7 @@
 
     pinForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      unlockAudio();
       verifyAndLogin(pinInput.value.trim());
     });
 
@@ -663,10 +667,20 @@
     // Fetch and render data
     async function loadDashboardData() {
       try {
-        const [ticketsRes, statsRes] = await Promise.all([
+        const fetchPromises = [
           fetch(`/api/admin/tickets?date=${selectedDate || ''}`, { headers: getAdminHeaders() }),
           fetch(`/api/admin/stats?date=${selectedDate || ''}`, { headers: getAdminHeaders() })
-        ]);
+        ];
+
+        // Si hay un filtro de fecha activo, consultamos también todos los tickets para no perder la alerta
+        if (selectedDate) {
+          fetchPromises.push(fetch('/api/admin/tickets', { headers: getAdminHeaders() }));
+        }
+
+        const responses = await Promise.all(fetchPromises);
+        const ticketsRes = responses[0];
+        const statsRes = responses[1];
+        const allTicketsRes = responses[2] || ticketsRes;
 
         if (ticketsRes.status === 401 || statsRes.status === 401) {
           btnLogout.click();
@@ -675,18 +689,19 @@
 
         const newTickets = await ticketsRes.json();
         const stats = await statsRes.json();
+        const allTickets = allTicketsRes ? await allTicketsRes.json() : newTickets;
 
-        // Detección sonora y visual de nuevos tickets entrantes
-        const newIds = newTickets.map(t => t.id);
+        // Detección sonora y visual de nuevos tickets entrantes sobre la totalidad de tickets
+        const allIds = allTickets.map(t => t.id);
         if (!isFirstLoad) {
-          const freshArrivals = newTickets.filter(t => !knownTicketIds.has(t.id));
+          const freshArrivals = allTickets.filter(t => !knownTicketIds.has(t.id));
           if (freshArrivals.length > 0) {
             triggerArrivalAlerts(freshArrivals);
-            showToast(`🔔 ¡${freshArrivals.length} nuevo(s) reporte(s) recibido(s) en la agenda!`, 'warning');
+            showToast(`🔔 ¡Nuevo reporte recibido: "${freshArrivals[0].title}" (${freshArrivals[0].requester.name})!`, 'warning');
           }
         }
         isFirstLoad = false;
-        knownTicketIds = new Set(newIds);
+        knownTicketIds = new Set(allIds);
 
         currentTickets = newTickets;
         renderStats(stats);
@@ -1223,32 +1238,113 @@
       });
     }
 
-    function playNotificationSound() {
-      if (!soundEnabled) return;
+    // Desbloqueo de Audio para Navegadores Modernos y Móviles
+    let audioUnlocked = false;
+    let persistentAudioCtx = null;
+
+    function unlockAudio() {
+      // 1. Desbloquear elemento de audio HTML5
+      const audioEl = document.getElementById('alert-audio');
+      if (audioEl) {
+        audioEl.load();
+        const prevVol = audioEl.volume;
+        audioEl.volume = 0.01;
+        audioEl.play().then(() => {
+          audioEl.pause();
+          audioEl.currentTime = 0;
+          audioEl.volume = 1.0;
+          audioUnlocked = true;
+        }).catch(() => {});
+      }
+
+      // 2. Desbloquear Web Audio API
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          if (!persistentAudioCtx) persistentAudioCtx = new AudioCtx();
+          if (persistentAudioCtx.state === 'suspended') {
+            persistentAudioCtx.resume().then(() => {
+              audioUnlocked = true;
+            });
+          } else if (persistentAudioCtx.state === 'running') {
+            audioUnlocked = true;
+          }
+        }
+      } catch (err) {
+        console.warn('Error inicializando Web Audio:', err);
+      }
+    }
+
+    // Desbloquear audio en el primer clic o toque en cualquier parte de la pantalla
+    window.addEventListener('click', unlockAudio, { passive: true });
+    window.addEventListener('touchstart', unlockAudio, { passive: true });
+    window.addEventListener('keydown', unlockAudio, { passive: true });
+
+    function playWebAudioChime() {
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (!AudioCtx) return;
-        const ctx = new AudioCtx();
-        const now = ctx.currentTime;
+        if (!persistentAudioCtx) persistentAudioCtx = new AudioCtx();
+        if (persistentAudioCtx.state === 'suspended') {
+          persistentAudioCtx.resume();
+        }
 
-        // Campana armoniosa tri-tono: D5 (587Hz) -> F#5 (739Hz) -> A5 (880Hz)
-        const notes = [587.33, 739.99, 880.00];
-        notes.forEach((freq, idx) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          const startTime = now + (idx * 0.14);
+        const now = persistentAudioCtx.currentTime;
+        // Doble campana potente Ding-Dong: G5 (784Hz) -> C6 (1046.5Hz) con armónicos
+        const tones = [
+          { freq: 784, time: 0, dur: 0.5, vol: 0.6 },
+          { freq: 1568, time: 0, dur: 0.35, vol: 0.3 },
+          { freq: 1046.5, time: 0.28, dur: 0.7, vol: 0.8 },
+          { freq: 2093, time: 0.28, dur: 0.5, vol: 0.4 }
+        ];
+
+        tones.forEach(n => {
+          const osc = persistentAudioCtx.createOscillator();
+          const gain = persistentAudioCtx.createGain();
+          const start = now + n.time;
+
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, startTime);
-          gain.gain.setValueAtTime(0.25, startTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+          osc.frequency.setValueAtTime(n.freq, start);
+          gain.gain.setValueAtTime(n.vol, start);
+          gain.gain.exponentialRampToValueAtTime(0.001, start + n.dur);
+
           osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(startTime);
-          osc.stop(startTime + 0.4);
+          gain.connect(persistentAudioCtx.destination);
+          osc.start(start);
+          osc.stop(start + n.dur);
         });
       } catch (err) {
-        console.warn('Audio no disponible:', err);
+        console.warn('Error en sintetizador de respaldo:', err);
       }
+    }
+
+    function playNotificationSound() {
+      if (!soundEnabled) return;
+      unlockAudio();
+
+      const audioEl = document.getElementById('alert-audio');
+      let htmlAudioPlayed = false;
+
+      if (audioEl) {
+        audioEl.currentTime = 0;
+        audioEl.volume = 1.0;
+        const playPromise = audioEl.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            htmlAudioPlayed = true;
+          }).catch(err => {
+            console.warn('HTML5 audio bloqueado, activando sintetizador Web Audio:', err);
+            playWebAudioChime();
+          });
+        }
+      }
+
+      // Sintetizador simultáneo de refuerzo para computadoras de escritorio
+      setTimeout(() => {
+        if (!htmlAudioPlayed) {
+          playWebAudioChime();
+        }
+      }, 60);
     }
 
     function triggerArrivalAlerts(freshTickets) {
@@ -1256,7 +1352,7 @@
 
       // Vibración en celular (si el dispositivo lo soporta)
       if ('vibrate' in navigator) {
-        navigator.vibrate([250, 100, 250]);
+        navigator.vibrate([300, 150, 300]);
       }
 
       // Notificación emergente de escritorio / sistema
@@ -1264,7 +1360,7 @@
         const first = freshTickets[0];
         const extraText = freshTickets.length > 1 ? ` (+${freshTickets.length - 1} más)` : '';
         const notif = new Notification(`🚨 Nuevo Ticket: ${first.title}${extraText}`, {
-          body: `👤 De: ${first.requester.name} (${first.category})\nPrioridad: ${first.priority.toUpperCase()}`,
+          body: `👤 Solicitante: ${first.requester.name} (${first.category})\nPrioridad: ${first.priority.toUpperCase()}`,
           icon: '/icon.svg',
           tag: first.id
         });
@@ -1275,6 +1371,7 @@
       }
     }
 
+    // Toggle Sonido ON/OFF
     const btnSoundToggle = document.getElementById('btn-sound-toggle');
     btnSoundToggle.addEventListener('click', () => {
       soundEnabled = !soundEnabled;
@@ -1282,12 +1379,33 @@
       btnSoundToggle.classList.toggle('btn-secondary', soundEnabled);
       btnSoundToggle.classList.toggle('btn-danger', !soundEnabled);
       if (soundEnabled) {
+        unlockAudio();
         playNotificationSound();
-        showToast('Sonido de alerta activado', 'info');
+        showToast('Sonido de alerta activado y listo', 'info');
       } else {
         showToast('Sonido silenciado', 'info');
       }
     });
+
+    // Botón para probar el sonido directamente
+    const btnSoundTest = document.getElementById('btn-sound-test');
+    if (btnSoundTest) {
+      btnSoundTest.addEventListener('click', () => {
+        soundEnabled = true;
+        btnSoundToggle.textContent = '🔔 Sonido: ON';
+        btnSoundToggle.classList.add('btn-secondary');
+        btnSoundToggle.classList.remove('btn-danger');
+
+        unlockAudio();
+        playNotificationSound();
+
+        if ('vibrate' in navigator) {
+          navigator.vibrate([250, 100, 250]);
+        }
+
+        showToast('🔊 Campana de alerta sonando. Si no escuchas nada, verifica que tu equipo o celular no tenga el volumen al mínimo o esté en silencio.', 'info');
+      });
+    }
 
     // ==========================================
     // REPORTE MENSUAL & EXPORTACIÓN A PDF Y CSV
@@ -1715,12 +1833,12 @@
       }
     }
 
-    // Auto-refresh Kanban every 10 seconds con verificación sonora de nuevos tickets
+    // Auto-refresh de tickets cada 5 segundos con verificación sonora continua
     setInterval(() => {
-      if (adminPin && !ticketModal.open && !monthlyModal.open) {
+      if (adminPin) {
         loadDashboardData();
       }
-    }, 10000);
+    }, 5000);
   </script>
 </body>
 </html>
