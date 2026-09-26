@@ -390,7 +390,7 @@
             </div>
             <div class="form-group" style="grid-column: span 2;">
               <label for="smtp-alert-emails">🚨 Correos de Alerta para el Equipo de Sistemas (separados por coma)</label>
-              <input type="text" id="smtp-alert-emails" class="form-input" value="coordinadora.it@buenaventuraresort.com" placeholder="coordinadora.it@buenaventuraresort.com">
+              <input type="text" id="smtp-alert-emails" class="form-input" value="soporte.it@buenaventuraresort.com" placeholder="soporte.it@buenaventuraresort.com">
               <span style="font-size: 0.78rem; color: var(--gray-500); display: block; margin-top: 3px;">
                 🔔 Cada vez que un usuario cree un ticket nuevo, el sistema enviará un aviso inmediato a este correo para que suene en el celular aunque no estés frente a la computadora.
               </span>
@@ -407,7 +407,7 @@
         <!-- Prueba de Envío -->
         <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem;">🧪 Probar Envío de Correo</h4>
         <div style="display: flex; gap: 0.5rem;">
-          <input type="email" id="test-email-input" class="form-input" value="coordinadora.it@buenaventuraresort.com" placeholder="coordinadora.it@buenaventuraresort.com">
+          <input type="email" id="test-email-input" class="form-input" value="soporte.it@buenaventuraresort.com" placeholder="soporte.it@buenaventuraresort.com">
           <button type="button" id="btn-send-test-email" class="btn btn-secondary" style="white-space: nowrap;">Enviar Prueba</button>
         </div>
       </div>
@@ -1145,7 +1145,7 @@
         document.getElementById('smtp-user').value = data.user || 'jwexecutiveoffice@gmail.com';
         document.getElementById('smtp-from-name').value = data.fromName || 'Departamento de Sistemas';
         document.getElementById('smtp-base-url').value = data.publicBaseUrl || window.location.origin;
-        document.getElementById('smtp-alert-emails').value = data.alertEmails || 'coordinadora.it@buenaventuraresort.com';
+        document.getElementById('smtp-alert-emails').value = data.alertEmails || 'soporte.it@buenaventuraresort.com';
         if (data.hasPass) {
           document.getElementById('smtp-pass').placeholder = '•••••••• (Guardada - déjala vacía para conservar)';
         }
