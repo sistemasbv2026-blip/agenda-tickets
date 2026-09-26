@@ -162,6 +162,15 @@ const db = {
     const id = generateTicketId();
     const now = new Date().toISOString();
 
+    let rawPhone = (requester.phone || '').trim();
+    let cleanDigits = rawPhone.replace(/\D/g, '');
+    let normalizedPhone = rawPhone;
+    if (cleanDigits.length === 8) {
+      normalizedPhone = `+507 ${cleanDigits}`;
+    } else if (cleanDigits.startsWith('507') && cleanDigits.length === 11) {
+      normalizedPhone = `+507 ${cleanDigits.slice(3)}`;
+    }
+
     const newTicket = {
       id,
       title: title.trim(),
@@ -172,7 +181,7 @@ const db = {
       requester: {
         name: requester.name.trim(),
         email: (requester.email || '').trim(),
-        phone: (requester.phone || '').trim()
+        phone: normalizedPhone
       },
       createdAt: now,
       updatedAt: now,

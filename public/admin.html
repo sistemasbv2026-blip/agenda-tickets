@@ -790,6 +790,32 @@
       }
     }
 
+    // Helper para formatear número de teléfono y enlace de WhatsApp para Panamá (+507)
+    function getPanamaPhoneInfo(phoneStr) {
+      if (!phoneStr) return null;
+      const digits = phoneStr.replace(/\D/g, '');
+      if (!digits) return null;
+
+      let waNumber = '';
+      let display = phoneStr;
+
+      if (digits.length === 8) {
+        waNumber = `507${digits}`;
+        display = `+507 ${digits.slice(0, 4)}-${digits.slice(4)}`;
+      } else if (digits.startsWith('507') && digits.length === 11) {
+        waNumber = digits;
+        const rest = digits.slice(3);
+        display = `+507 ${rest.slice(0, 4)}-${rest.slice(4)}`;
+      } else if (digits.length >= 8) {
+        waNumber = digits;
+        display = phoneStr;
+      } else {
+        return null;
+      }
+
+      return { waNumber, display };
+    }
+
     // Ticket Modal
     async function openTicketModal(id) {
       try {
@@ -806,15 +832,15 @@
         document.getElementById('modal-requester-email').textContent = t.requester.email || 'No proporcionado';
         
         const phone = (t.requester.phone || '').trim();
-        const cleanPhone = phone.replace(/\D/g, '');
-        document.getElementById('modal-requester-phone').textContent = phone || 'No proporcionado';
+        const phoneInfo = getPanamaPhoneInfo(phone);
+        document.getElementById('modal-requester-phone').textContent = phoneInfo ? phoneInfo.display : (phone || 'No proporcionado');
         
         const whatsappBadge = document.getElementById('modal-whatsapp-badge');
         const whatsappToggleLabel = document.getElementById('whatsapp-toggle-label');
         const whatsappCheck = document.getElementById('send-whatsapp-check');
 
-        if (cleanPhone.length >= 8) {
-          whatsappBadge.innerHTML = `<a href="https://wa.me/${cleanPhone}" target="_blank" class="btn btn-sm" style="background: #25d366; color: white; padding: 2px 8px; margin-left: 6px; font-size: 0.75rem; text-decoration: none;">📲 Abrir WhatsApp</a>`;
+        if (phoneInfo) {
+          whatsappBadge.innerHTML = `<a href="https://wa.me/${phoneInfo.waNumber}" target="_blank" class="btn btn-sm" style="background: #25d366; color: white; padding: 2px 8px; margin-left: 6px; font-size: 0.75rem; text-decoration: none;">📲 Abrir WhatsApp</a>`;
           whatsappToggleLabel.style.display = 'flex';
           whatsappCheck.checked = true;
         } else {
@@ -927,13 +953,13 @@
 
         // Check if WhatsApp auto-send is requested and valid phone exists
         const phone = (selectedTicket.requester?.phone || '').trim();
-        const cleanPhone = phone.replace(/\D/g, '');
+        const phoneInfo = getPanamaPhoneInfo(phone);
         const sendWhatsApp = document.getElementById('send-whatsapp-check').checked;
 
-        if (sendWhatsApp && cleanPhone.length >= 8) {
+        if (sendWhatsApp && phoneInfo) {
           const trackingUrl = `${window.location.origin}/ticket/${selectedTicket.id}`;
           const waMessage = `¡Hola *${selectedTicket.requester.name}*! 👋 Te escribimos del *Departamento de Sistemas* respecto a tu reporte *${selectedTicket.id}* ("${selectedTicket.title}").\n\n💬 *Respuesta de Sistemas:* \n${message}\n\n🔗 Puedes consultar el avance o responder en línea aquí:\n${trackingUrl}`;
-          const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMessage)}`;
+          const waUrl = `https://wa.me/${phoneInfo.waNumber}?text=${encodeURIComponent(waMessage)}`;
           window.open(waUrl, '_blank');
         }
 
