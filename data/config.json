@@ -1,0 +1,12 @@
+{
+  "adminPin": "1234",
+  "companyName": "Centro de Soporte & Reportes",
+  "categories": [
+    "Soporte Técnico",
+    "Incidencia",
+    "Solicitud de Servicio",
+    "Facturación / Pagos",
+    "Mantenimiento",
+    "Otro"
+  ]
+}

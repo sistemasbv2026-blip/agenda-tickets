@@ -1,0 +1,184 @@
+[
+  {
+    "id": "TCK-2026-54F41085",
+    "title": "Prueba automatica",
+    "description": "Probando creacion",
+    "category": "Soporte Técnico",
+    "priority": "alta",
+    "status": "en_proceso",
+    "requester": {
+      "name": "Ana Prado",
+      "email": "ana@test.com",
+      "phone": ""
+    },
+    "createdAt": "2026-09-26T04:58:07.037Z",
+    "updatedAt": "2026-09-26T04:59:14.147Z",
+    "closedAt": null,
+    "history": [
+      {
+        "id": "4d7cd933-3fa5-4a84-9f62-15b17949750f",
+        "type": "created",
+        "author": "solicitante",
+        "authorName": "Ana Prado",
+        "message": "Ticket creado exitosamente y registrado en la agenda del día.",
+        "timestamp": "2026-09-26T04:58:07.037Z"
+      },
+      {
+        "id": "6e0f1fa1-ae67-4279-a0de-6e9e5cc7c18c",
+        "type": "status_change",
+        "author": "admin",
+        "authorName": "Administrador",
+        "oldStatus": "pendiente",
+        "newStatus": "en_proceso",
+        "message": "Tomando requerimiento",
+        "timestamp": "2026-09-26T04:59:14.147Z"
+      }
+    ],
+    "internalNotes": []
+  },
+  {
+    "id": "TCK-2026-A101",
+    "title": "Falla intermitente en conexión a servidor de base de datos",
+    "description": "Durante la tarde de hoy se han presentado desconexiones intermitentes al guardar los reportes de ventas. Solicito revisión urgente del servicio.",
+    "category": "Incidencia",
+    "priority": "urgente",
+    "status": "pendiente",
+    "requester": {
+      "name": "Carlos Mendoza",
+      "email": "carlos.mendoza@empresa.com",
+      "phone": "+52 55 9876 5432"
+    },
+    "createdAt": "2026-09-25T19:15:00.000Z",
+    "updatedAt": "2026-09-25T19:15:00.000Z",
+    "closedAt": null,
+    "history": [
+      {
+        "id": "hist-1",
+        "type": "created",
+        "author": "solicitante",
+        "authorName": "Carlos Mendoza",
+        "message": "Ticket creado exitosamente y registrado en la agenda del día.",
+        "timestamp": "2026-09-25T19:15:00.000Z"
+      }
+    ],
+    "internalNotes": []
+  },
+  {
+    "id": "TCK-2026-B204",
+    "title": "Solicitud de alta de usuario nuevo en módulo de facturación",
+    "description": "Se integró una nueva colaboradora al área contable y requiere accesos de consulta y timbrado con perfil de analista.",
+    "category": "Solicitud de Servicio",
+    "priority": "alta",
+    "status": "en_proceso",
+    "requester": {
+      "name": "Mariana López",
+      "email": "mlopez@finanzas.com",
+      "phone": "+52 55 4433 2211"
+    },
+    "createdAt": "2026-09-25T18:00:00.000Z",
+    "updatedAt": "2026-09-25T18:45:00.000Z",
+    "closedAt": null,
+    "history": [
+      {
+        "id": "hist-2",
+        "type": "created",
+        "author": "solicitante",
+        "authorName": "Mariana López",
+        "message": "Ticket creado exitosamente y registrado en la agenda del día.",
+        "timestamp": "2026-09-25T18:00:00.000Z"
+      },
+      {
+        "id": "hist-3",
+        "type": "status_change",
+        "author": "admin",
+        "authorName": "Equipo de Soporte",
+        "oldStatus": "pendiente",
+        "newStatus": "en_proceso",
+        "message": "Hemos tomado tu requerimiento. Estamos generando las credenciales temporales.",
+        "timestamp": "2026-09-25T18:45:00.000Z"
+      }
+    ],
+    "internalNotes": [
+      {
+        "id": "note-1",
+        "author": "Administrador",
+        "message": "Se solicitó autorización previa al líder de seguridad.",
+        "timestamp": "2026-09-25T18:46:00.000Z"
+      }
+    ]
+  },
+  {
+    "id": "TCK-2026-C309",
+    "title": "Mantenimiento preventivo de impresoras en recepción",
+    "description": "Revisión rutinaria de tóner y rodillos de alimentación de papel en el área principal.",
+    "category": "Mantenimiento",
+    "priority": "media",
+    "status": "resuelto",
+    "requester": {
+      "name": "Roberto Sánchez",
+      "email": "recepcion@corporativo.com",
+      "phone": "+52 55 6677 8899"
+    },
+    "createdAt": "2026-09-25T15:30:00.000Z",
+    "updatedAt": "2026-09-25T17:10:00.000Z",
+    "closedAt": null,
+    "history": [
+      {
+        "id": "hist-4",
+        "type": "created",
+        "author": "solicitante",
+        "authorName": "Roberto Sánchez",
+        "message": "Ticket creado exitosamente y registrado en la agenda del día.",
+        "timestamp": "2026-09-25T15:30:00.000Z"
+      },
+      {
+        "id": "hist-5",
+        "type": "status_change",
+        "author": "admin",
+        "authorName": "Soporte Técnico",
+        "oldStatus": "en_proceso",
+        "newStatus": "resuelto",
+        "message": "Mantenimiento completado satisfactoriamente y pruebas de impresión correctas.",
+        "timestamp": "2026-09-25T17:10:00.000Z"
+      }
+    ],
+    "internalNotes": []
+  },
+  {
+    "id": "TCK-2026-D412",
+    "title": "Consulta sobre cambio de contraseña de correo institucional",
+    "description": "El solicitante olvidó los pasos para la autenticación de dos factores en su teléfono nuevo.",
+    "category": "Soporte Técnico",
+    "priority": "baja",
+    "status": "cerrado",
+    "requester": {
+      "name": "Lucía Morales",
+      "email": "lucia.m@correo.com",
+      "phone": ""
+    },
+    "createdAt": "2026-09-25T12:00:00.000Z",
+    "updatedAt": "2026-09-25T13:20:00.000Z",
+    "closedAt": "2026-09-25T13:20:00.000Z",
+    "history": [
+      {
+        "id": "hist-6",
+        "type": "created",
+        "author": "solicitante",
+        "authorName": "Lucía Morales",
+        "message": "Ticket creado exitosamente y registrado en la agenda del día.",
+        "timestamp": "2026-09-25T12:00:00.000Z"
+      },
+      {
+        "id": "hist-7",
+        "type": "status_change",
+        "author": "admin",
+        "authorName": "Administrador",
+        "oldStatus": "resuelto",
+        "newStatus": "cerrado",
+        "message": "Se asistió telefónicamente y se configuró el autenticador con éxito.",
+        "timestamp": "2026-09-25T13:20:00.000Z"
+      }
+    ],
+    "internalNotes": []
+  }
+]

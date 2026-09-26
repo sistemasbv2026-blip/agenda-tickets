@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de Administración y Agenda Diaria - Kanban de Tickets</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* Admin specific styles */
+    .admin-locked {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 80vh;
+    }
+
+    .pin-box {
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .kanban-dropzone {
+      min-height: 120px;
+      transition: background-color 0.2s;
+    }
+
+    .kanban-dropzone.drag-over {
+      background-color: #e2e8f0;
+      border-radius: var(--radius-md);
+    }
+
+    .tab-btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      background: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--gray-500);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Encabezado Admin -->
+  <header class="app-header">
+    <a href="/admin" class="logo-container">
+      <div class="logo-badge" style="background: linear-gradient(135deg, #0f172a, #334155);">⚙️</div>
+      <div class="logo-text">
+        <h1>Agenda Diaria & Tablero</h1>
+        <span>Panel Administrativo de Control</span>
+      </div>
+    </a>
+    <nav class="main-nav">
+      <a href="/" target="_blank" class="nav-link">↗ Ver Portal Público</a>
+      <button id="btn-settings" class="btn btn-secondary btn-sm">⚙️ Ajustes</button>
+      <button id="btn-logout" class="btn btn-danger btn-sm" style="display: none;">🚪 Salir</button>
+    </nav>
+  </header>
+
+  <!-- Pantalla de Bloqueo por PIN -->
+  <div id="lock-screen" class="admin-locked">
+    <div class="surface-card pin-box">
+      <div style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
+      <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 0.5rem;">Acceso al Panel</h2>
+      <p style="font-size: 0.85rem; color: var(--gray-500); margin-bottom: 1.5rem;">
+        Ingresa el PIN de seguridad de administrador.<br>
+        <span style="font-size: 0.78rem; color: var(--gray-400);">(PIN por defecto: <strong>1234</strong>)</span>
+      </p>
+
+      <form id="pin-form">
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <input type="password" id="pin-input" class="form-input" placeholder="PIN de 4 dígitos" maxlength="10" required style="font-size: 1.5rem; text-align: center; letter-spacing: 0.3em;">
+        </div>
+        <button type="submit" id="btn-pin-submit" class="btn btn-primary btn-block">
+          Desbloquear Agenda
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Dashboard Principal (Visible solo tras autenticación) -->
+  <main id="admin-dashboard" class="main-container fluid" style="display: none;">
+
+    <!-- Barra de Herramientas de Agenda Diaria -->
+    <div class="agenda-toolbar">
+      <div class="agenda-date-controls">
+        <div style="font-size: 1.1rem; font-weight: 800; color: var(--gray-800); display: flex; align-items: center; gap: 0.5rem;">
+          📅 Agenda:
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm date-preset" data-date="today">Hoy</button>
+        <button type="button" class="btn btn-secondary btn-sm date-preset" data-date="yesterday">Ayer</button>
+        <button type="button" class="btn btn-secondary btn-sm date-preset" data-date="all">Todos</button>
+        <input type="date" id="filter-date" class="form-input" style="padding: 0.35rem 0.65rem; width: auto; font-size: 0.88rem;">
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; align-items: center; flex: 1; max-width: 450px; justify-content: flex-end;">
+        <input type="text" id="filter-search" class="form-input" placeholder="🔍 Buscar por código, asunto o solicitante..." style="font-size: 0.88rem;">
+        <button id="btn-export-csv" class="btn btn-secondary btn-sm" title="Descargar CSV">
+          📥 CSV
+        </button>
+        <button id="btn-reload-admin" class="btn btn-secondary btn-sm" title="Recargar">
+          🔄
+        </button>
+      </div>
+    </div>
+
+    <!-- Métricas del Día -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon" style="background: #e2e8f0; color: var(--gray-800);">📊</div>
+        <div class="stat-info">
+          <h3 id="stat-total">0</h3>
+          <p id="stat-date-label">Total en Fecha</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon" style="background: #fef3c7; color: #92400e;">🟡</div>
+        <div class="stat-info">
+          <h3 id="stat-pendiente">0</h3>
+          <p>Pendientes</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon" style="background: #e0f2fe; color: #0369a1;">🔵</div>
+        <div class="stat-info">
+          <h3 id="stat-en_proceso">0</h3>
+          <p>En Proceso</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon" style="background: #dcfce7; color: #15803d;">🟢</div>
+        <div class="stat-info">
+          <h3 id="stat-resuelto">0</h3>
+          <p>Resueltos</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon" style="background: #f1f5f9; color: #475569;">⚪</div>
+        <div class="stat-info">
+          <h3 id="stat-cerrado">0</h3>
+          <p>Cerrados</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tablero Kanban (4 Columnas) -->
+    <div class="kanban-board">
+      
+      <!-- Columna 1: Pendiente -->
+      <div class="kanban-col" data-status="pendiente">
+        <div class="kanban-header">
+          <div class="kanban-title">
+            <span style="color: #f59e0b;">●</span> Pendientes
+          </div>
+          <span class="kanban-count" id="count-pendiente">0</span>
+        </div>
+        <div class="kanban-cards kanban-dropzone" id="cards-pendiente">
+          <!-- Tarjetas dinámicas -->
+        </div>
+      </div>
+
+      <!-- Columna 2: En Proceso -->
+      <div class="kanban-col" data-status="en_proceso">
+        <div class="kanban-header">
+          <div class="kanban-title">
+            <span style="color: #0284c7;">●</span> En Proceso
+          </div>
+          <span class="kanban-count" id="count-en_proceso">0</span>
+        </div>
+        <div class="kanban-cards kanban-dropzone" id="cards-en_proceso">
+          <!-- Tarjetas dinámicas -->
+        </div>
+      </div>
+
+      <!-- Columna 3: Resuelto -->
+      <div class="kanban-col" data-status="resuelto">
+        <div class="kanban-header">
+          <div class="kanban-title">
+            <span style="color: #16a34a;">●</span> Resueltos
+          </div>
+          <span class="kanban-count" id="count-resuelto">0</span>
+        </div>
+        <div class="kanban-cards kanban-dropzone" id="cards-resuelto">
+          <!-- Tarjetas dinámicas -->
+        </div>
+      </div>
+
+      <!-- Columna 4: Cerrado -->
+      <div class="kanban-col" data-status="cerrado">
+        <div class="kanban-header">
+          <div class="kanban-title">
+            <span style="color: #64748b;">●</span> Cerrados
+          </div>
+          <span class="kanban-count" id="count-cerrado">0</span>
+        </div>
+        <div class="kanban-cards kanban-dropzone" id="cards-cerrado">
+          <!-- Tarjetas dinámicas -->
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Modal Detalle y Gestión del Ticket (HTML5 <dialog>) -->
+  <dialog id="ticket-modal" class="custom-modal">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span id="modal-ticket-id" style="font-weight: 800; font-size: 1.1rem; color: var(--primary);">TCK-XXXX</span>
+        <span id="modal-ticket-status-badge"></span>
+        <span id="modal-ticket-priority-badge"></span>
+      </div>
+      <button type="button" id="btn-close-modal" class="btn btn-secondary btn-sm" style="font-size: 1.1rem; padding: 0.2rem 0.6rem;">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Info General -->
+      <h3 id="modal-ticket-title" style="font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--gray-900);">Título</h3>
+      
+      <div style="background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 0.85rem; font-size: 0.85rem; margin-bottom: 1.25rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+        <div>👤 <strong>Solicitante:</strong> <span id="modal-requester-name">-</span></div>
+        <div>✉️ <strong>Email:</strong> <span id="modal-requester-email">-</span></div>
+        <div>📞 <strong>Teléfono:</strong> <span id="modal-requester-phone">-</span></div>
+        <div>📁 <strong>Categoría:</strong> <span id="modal-category">-</span></div>
+        <div>🕒 <strong>Creado:</strong> <span id="modal-created-at">-</span></div>
+        <div>🔗 <strong>Seguimiento:</strong> <a id="modal-public-link" href="#" target="_blank" style="color: var(--primary); text-decoration: underline;">Abrir vista pública</a></div>
+      </div>
+
+      <div style="margin-bottom: 1.25rem;">
+        <strong style="font-size: 0.85rem; color: var(--gray-700);">Descripción original:</strong>
+        <div id="modal-ticket-desc" style="white-space: pre-wrap; font-size: 0.92rem; background: #fff; border: 1px solid var(--gray-200); padding: 0.85rem; border-radius: var(--radius-sm); margin-top: 0.35rem; max-height: 160px; overflow-y: auto;">-</div>
+      </div>
+
+      <!-- Barra de Acción Rápida de Cambio de Estado -->
+      <div style="background: #f8fafc; border: 1px solid var(--gray-300); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem;">
+        <div style="font-weight: 700; font-size: 0.88rem; margin-bottom: 0.65rem; color: var(--gray-800);">
+          ⚡ Cambiar Estado del Ticket:
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button type="button" class="btn btn-secondary btn-sm btn-change-status" data-status="pendiente">🟡 Pendiente</button>
+          <button type="button" class="btn btn-secondary btn-sm btn-change-status" data-status="en_proceso" style="background: #e0f2fe; color: #0369a1; border-color: #bae6fd;">🔵 En Proceso</button>
+          <button type="button" class="btn btn-secondary btn-sm btn-change-status" data-status="resuelto" style="background: #dcfce7; color: #15803d; border-color: #bbf7d0;">🟢 Marcar Resuelto</button>
+          <button type="button" class="btn btn-secondary btn-sm btn-change-status" data-status="cerrado" style="background: #f1f5f9; color: #475569; border-color: #cbd5e1;">⚪ Cerrar Ticket</button>
+        </div>
+      </div>
+
+      <!-- Tabs: Respuesta Pública vs Notas Internas vs Historial -->
+      <div style="border-bottom: 1px solid var(--gray-200); display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <button type="button" class="tab-btn active" data-tab="tab-reply">💬 Responder al Cliente</button>
+        <button type="button" class="tab-btn" data-tab="tab-internal">🔒 Notas Internas (<span id="modal-notes-count">0</span>)</button>
+        <button type="button" class="tab-btn" data-tab="tab-history">📜 Historial (<span id="modal-history-count">0</span>)</button>
+      </div>
+
+      <!-- Tab 1: Responder al Cliente -->
+      <div id="tab-reply" class="tab-content">
+        <form id="admin-reply-form">
+          <div class="form-group" style="margin-bottom: 0.75rem;">
+            <label style="font-size: 0.85rem;">Mensaje público (el cliente lo verá en su enlace de seguimiento):</label>
+            <textarea id="admin-reply-text" class="form-textarea" placeholder="Ej: Hemos validado tu reporte e iniciado la corrección del sistema..." required style="min-height: 80px;"></textarea>
+          </div>
+          <div style="display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn btn-primary btn-sm">Enviar Respuesta Pública</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Tab 2: Notas Internas -->
+      <div id="tab-internal" class="tab-content" style="display: none;">
+        <div id="modal-notes-list" style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem; max-height: 180px; overflow-y: auto;">
+          <!-- Notas internas renderizadas -->
+        </div>
+        <form id="admin-note-form">
+          <div class="form-group" style="margin-bottom: 0.75rem;">
+            <label style="font-size: 0.85rem;">Agregar nota privada (solo visible para administradores):</label>
+            <textarea id="admin-note-text" class="form-textarea" placeholder="Ej: Se comunicó con el proveedor de red; número de caso externo #994..." required style="min-height: 60px;"></textarea>
+          </div>
+          <div style="display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn btn-secondary btn-sm">Guardar Nota Privada</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Tab 3: Historial Completo -->
+      <div id="tab-history" class="tab-content" style="display: none;">
+        <div id="modal-history-list" class="activity-stream" style="margin-top: 0; max-height: 250px; overflow-y: auto;">
+          <!-- Historial renderizado -->
+        </div>
+      </div>
+
+    </div>
+  </dialog>
+
+  <!-- Modal de Ajustes (Cambiar PIN) -->
+  <dialog id="settings-modal" class="custom-modal" style="max-width: 450px;">
+    <div class="modal-header">
+      <h3 style="font-size: 1.1rem; font-weight: 700;">⚙️ Configuración del Panel</h3>
+      <button type="button" id="btn-close-settings" class="btn btn-secondary btn-sm">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="change-pin-form">
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label for="current-pin">PIN Actual <span class="req">*</span></label>
+          <input type="password" id="current-pin" class="form-input" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label for="new-pin">Nuevo PIN de Acceso <span class="req">*</span></label>
+          <input type="password" id="new-pin" class="form-input" minlength="4" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Guardar Nuevo PIN</button>
+      </form>
+    </div>
+  </dialog>
+
+  <footer style="text-align: center; padding: 2rem; color: var(--gray-500); font-size: 0.85rem; border-top: 1px solid var(--gray-200); margin-top: 3rem; background: white;">
+    Sistema de Agenda Diaria y Control de Tickets &bull; Panel de Gestión
+  </footer>
+
+  <script src="/js/app.js"></script>
+  <script>
+    // State
+    let adminPin = sessionStorage.getItem('admin_pin') || '';
+    let selectedDate = getTodayDateString();
+    let currentTickets = [];
+    let selectedTicket = null;
+
+    // Elements
+    const lockScreen = document.getElementById('lock-screen');
+    const adminDashboard = document.getElementById('admin-dashboard');
+    const pinForm = document.getElementById('pin-form');
+    const pinInput = document.getElementById('pin-input');
+    const btnLogout = document.getElementById('btn-logout');
+    const btnSettings = document.getElementById('btn-settings');
+    const settingsModal = document.getElementById('settings-modal');
+    const btnCloseSettings = document.getElementById('btn-close-settings');
+    const changePinForm = document.getElementById('change-pin-form');
+
+    const filterDateInput = document.getElementById('filter-date');
+    const filterSearchInput = document.getElementById('filter-search');
+    const btnExportCsv = document.getElementById('btn-export-csv');
+    const btnReloadAdmin = document.getElementById('btn-reload-admin');
+
+    const ticketModal = document.getElementById('ticket-modal');
+    const btnCloseModal = document.getElementById('btn-close-modal');
+
+    function getTodayDateString() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function getYesterdayDateString() {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    // Helper headers
+    function getAdminHeaders() {
+      return {
+        'Content-Type': 'application/json',
+        'x-admin-pin': adminPin
+      };
+    }
+
+    // Authenticate PIN
+    async function verifyAndLogin(pin) {
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'PIN incorrecto');
+
+        adminPin = pin;
+        sessionStorage.setItem('admin_pin', pin);
+        lockScreen.style.display = 'none';
+        adminDashboard.style.display = 'block';
+        btnLogout.style.display = 'inline-flex';
+        showToast('Acceso autorizado', 'success');
+
+        filterDateInput.value = selectedDate;
+        loadDashboardData();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    pinForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      verifyAndLogin(pinInput.value.trim());
+    });
+
+    btnLogout.addEventListener('click', () => {
+      adminPin = '';
+      sessionStorage.removeItem('admin_pin');
+      window.location.reload();
+    });
+
+    // Check if previously logged in this session
+    if (adminPin) {
+      verifyAndLogin(adminPin);
+    }
+
+    // Date Presets
+    document.querySelectorAll('.date-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.getAttribute('data-date');
+        if (type === 'today') {
+          selectedDate = getTodayDateString();
+          filterDateInput.value = selectedDate;
+        } else if (type === 'yesterday') {
+          selectedDate = getYesterdayDateString();
+          filterDateInput.value = selectedDate;
+        } else if (type === 'all') {
+          selectedDate = '';
+          filterDateInput.value = '';
+        }
+        loadDashboardData();
+      });
+    });
+
+    filterDateInput.addEventListener('change', () => {
+      selectedDate = filterDateInput.value;
+      loadDashboardData();
+    });
+
+    filterSearchInput.addEventListener('input', () => {
+      filterAndRenderKanban();
+    });
+
+    btnReloadAdmin.addEventListener('click', () => {
+      loadDashboardData();
+      showToast('Datos actualizados', 'info');
+    });
+
+    // Export CSV
+    btnExportCsv.addEventListener('click', () => {
+      const url = `/api/admin/export?date=${selectedDate || ''}`;
+      const win = window.open(url, '_blank');
+      if (!win) {
+        window.location.href = url;
+      }
+    });
+
+    // Fetch and render data
+    async function loadDashboardData() {
+      try {
+        const [ticketsRes, statsRes] = await Promise.all([
+          fetch(`/api/admin/tickets?date=${selectedDate || ''}`, { headers: getAdminHeaders() }),
+          fetch(`/api/admin/stats?date=${selectedDate || ''}`, { headers: getAdminHeaders() })
+        ]);
+
+        if (ticketsRes.status === 401 || statsRes.status === 401) {
+          btnLogout.click();
+          return;
+        }
+
+        currentTickets = await ticketsRes.json();
+        const stats = await statsRes.json();
+
+        renderStats(stats);
+        filterAndRenderKanban();
+      } catch (err) {
+        showToast('Error cargando información: ' + err.message, 'error');
+      }
+    }
+
+    function renderStats(stats) {
+      document.getElementById('stat-total').textContent = stats.totalToday;
+      document.getElementById('stat-pendiente').textContent = stats.pendiente;
+      document.getElementById('stat-en_proceso').textContent = stats.en_proceso;
+      document.getElementById('stat-resuelto').textContent = stats.resuelto;
+      document.getElementById('stat-cerrado').textContent = stats.cerrado;
+      document.getElementById('stat-date-label').textContent = selectedDate ? `Total en ${selectedDate}` : 'Total histórico';
+    }
+
+    function filterAndRenderKanban() {
+      const q = filterSearchInput.value.trim().toLowerCase();
+      let filtered = currentTickets;
+
+      if (q) {
+        filtered = filtered.filter(t => 
+          t.id.toLowerCase().includes(q) ||
+          t.title.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q) ||
+          (t.requester.name && t.requester.name.toLowerCase().includes(q))
+        );
+      }
+
+      const columns = {
+        pendiente: document.getElementById('cards-pendiente'),
+        en_proceso: document.getElementById('cards-en_proceso'),
+        resuelto: document.getElementById('cards-resuelto'),
+        cerrado: document.getElementById('cards-cerrado')
+      };
+
+      const counts = {
+        pendiente: 0,
+        en_proceso: 0,
+        resuelto: 0,
+        cerrado: 0
+      };
+
+      // Clear columns
+      Object.values(columns).forEach(col => col.innerHTML = '');
+
+      filtered.forEach(ticket => {
+        const status = ticket.status;
+        if (counts[status] !== undefined) {
+          counts[status]++;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'kanban-card';
+        card.setAttribute('draggable', 'true');
+        card.setAttribute('data-id', ticket.id);
+
+        card.innerHTML = `
+          <div class="kanban-card-top">
+            <span class="kanban-card-id">${ticket.id}</span>
+            ${getPriorityBadge(ticket.priority)}
+          </div>
+          <div class="kanban-card-title">${ticket.title}</div>
+          <div class="kanban-card-desc">${ticket.description}</div>
+          <div class="kanban-card-footer">
+            <span>👤 ${ticket.requester.name}</span>
+            <span>🕒 ${formatRelativeTime(ticket.createdAt)}</span>
+          </div>
+        `;
+
+        card.addEventListener('click', () => openTicketModal(ticket.id));
+
+        // Drag and drop support
+        card.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', ticket.id);
+        });
+
+        if (columns[status]) {
+          columns[status].appendChild(card);
+        }
+      });
+
+      // Update counters
+      document.getElementById('count-pendiente').textContent = counts.pendiente;
+      document.getElementById('count-en_proceso').textContent = counts.en_proceso;
+      document.getElementById('count-resuelto').textContent = counts.resuelto;
+      document.getElementById('count-cerrado').textContent = counts.cerrado;
+    }
+
+    // Setup drag and drop for columns
+    document.querySelectorAll('.kanban-dropzone').forEach(dropzone => {
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('drag-over');
+      });
+
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('drag-over');
+      });
+
+      dropzone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('drag-over');
+        const ticketId = e.dataTransfer.getData('text/plain');
+        const targetCol = dropzone.closest('.kanban-col');
+        const newStatus = targetCol.getAttribute('data-status');
+
+        if (ticketId && newStatus) {
+          await updateTicketStatusApi(ticketId, newStatus, `Estado actualizado en tablero a ${newStatus}`);
+        }
+      });
+    });
+
+    // Update status API
+    async function updateTicketStatusApi(id, newStatus, comment = '') {
+      try {
+        const res = await fetch(`/api/admin/tickets/${id}/status`, {
+          method: 'PATCH',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ status: newStatus, comment })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al actualizar');
+        showToast(`Ticket ${id} movido a ${newStatus}`, 'success');
+        await loadDashboardData();
+        if (selectedTicket && selectedTicket.id === id) {
+          openTicketModal(id);
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Ticket Modal
+    async function openTicketModal(id) {
+      try {
+        const res = await fetch(`/api/admin/tickets/${id}`, { headers: getAdminHeaders() });
+        if (!res.ok) throw new Error('Error al cargar ticket');
+        const t = await res.json();
+        selectedTicket = t;
+
+        document.getElementById('modal-ticket-id').textContent = t.id;
+        document.getElementById('modal-ticket-status-badge').innerHTML = getStatusBadge(t.status);
+        document.getElementById('modal-ticket-priority-badge').innerHTML = getPriorityBadge(t.priority);
+        document.getElementById('modal-ticket-title').textContent = t.title;
+        document.getElementById('modal-requester-name').textContent = t.requester.name;
+        document.getElementById('modal-requester-email').textContent = t.requester.email || 'No proporcionado';
+        document.getElementById('modal-requester-phone').textContent = t.requester.phone || 'No proporcionado';
+        document.getElementById('modal-category').textContent = t.category;
+        document.getElementById('modal-created-at').textContent = formatDate(t.createdAt);
+        document.getElementById('modal-ticket-desc').textContent = t.description;
+
+        const publicLink = document.getElementById('modal-public-link');
+        publicLink.href = `/ticket/${t.id}`;
+
+        // Notes count & render
+        document.getElementById('modal-notes-count').textContent = t.internalNotes.length;
+        renderNotes(t.internalNotes);
+
+        // History count & render
+        document.getElementById('modal-history-count').textContent = t.history.length;
+        renderHistory(t.history);
+
+        // Reset tabs to reply tab
+        switchTab('tab-reply');
+
+        ticketModal.showModal();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function renderNotes(notes) {
+      const container = document.getElementById('modal-notes-list');
+      if (notes.length === 0) {
+        container.innerHTML = '<p style="color: var(--gray-400); font-size: 0.85rem; font-style: italic;">Sin notas internas registradas aún.</p>';
+        return;
+      }
+      container.innerHTML = notes.map(n => `
+        <div style="background: #fefce8; border: 1px solid #fef08a; padding: 0.6rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.85rem;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+            <strong style="color: #854d0e;">🔒 ${n.author}</strong>
+            <span style="color: var(--gray-400); font-size: 0.75rem;">${formatDate(n.timestamp)}</span>
+          </div>
+          <div style="color: #713f12;">${n.message}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderHistory(history) {
+      const container = document.getElementById('modal-history-list');
+      container.innerHTML = history.map(item => `
+        <div class="activity-item">
+          <div class="activity-avatar" style="background: ${item.author === 'admin' ? '#dbeafe' : '#fef3c7'};">
+            ${item.author === 'admin' ? '🛡️' : '👤'}
+          </div>
+          <div class="activity-content">
+            <div class="activity-header">
+              <span class="activity-author">${item.authorName || item.author}</span>
+              <span class="activity-time">${formatDate(item.timestamp)}</span>
+            </div>
+            <div class="activity-body">${item.message}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Modal tabs
+    function switchTab(targetId) {
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-tab') === targetId);
+      });
+      document.querySelectorAll('.tab-content').forEach(c => {
+        c.style.display = c.id === targetId ? 'block' : 'none';
+      });
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchTab(btn.getAttribute('data-tab'));
+      });
+    });
+
+    btnCloseModal.addEventListener('click', () => ticketModal.close());
+
+    // Status buttons inside modal
+    document.querySelectorAll('.btn-change-status').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!selectedTicket) return;
+        const newStatus = btn.getAttribute('data-status');
+        updateTicketStatusApi(selectedTicket.id, newStatus, `Estado cambiado por administrador a ${newStatus}`);
+      });
+    });
+
+    // Public reply submission
+    document.getElementById('admin-reply-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const textInput = document.getElementById('admin-reply-text');
+      const message = textInput.value.trim();
+      if (!message || !selectedTicket) return;
+
+      try {
+        const res = await fetch(`/api/admin/tickets/${selectedTicket.id}/comments`, {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ message, adminName: 'Soporte Administrativo' })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al enviar');
+
+        textInput.value = '';
+        showToast('Respuesta enviada al solicitante', 'success');
+        openTicketModal(selectedTicket.id);
+        loadDashboardData();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    // Internal note submission
+    document.getElementById('admin-note-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const textInput = document.getElementById('admin-note-text');
+      const note = textInput.value.trim();
+      if (!note || !selectedTicket) return;
+
+      try {
+        const res = await fetch(`/api/admin/tickets/${selectedTicket.id}/notes`, {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ note })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al guardar nota');
+
+        textInput.value = '';
+        showToast('Nota interna registrada', 'success');
+        openTicketModal(selectedTicket.id);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    // Settings Modal
+    btnSettings.addEventListener('click', () => {
+      settingsModal.showModal();
+    });
+
+    btnCloseSettings.addEventListener('click', () => settingsModal.close());
+
+    changePinForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const currentPin = document.getElementById('current-pin').value;
+      const newPin = document.getElementById('new-pin').value;
+
+      try {
+        const res = await fetch('/api/admin/change-pin', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ currentPin, newPin })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al cambiar PIN');
+
+        adminPin = newPin;
+        sessionStorage.setItem('admin_pin', newPin);
+        changePinForm.reset();
+        settingsModal.close();
+        showToast('PIN actualizado exitosamente', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    // Auto-refresh Kanban every 20 seconds
+    setInterval(() => {
+      if (adminPin && !ticketModal.open) {
+        loadDashboardData();
+      }
+    }, 20000);
+  </script>
+</body>
+</html>

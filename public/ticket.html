@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seguimiento de Ticket - Agenda Diaria</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- Encabezado -->
+  <header class="app-header">
+    <a href="/" class="logo-container">
+      <div class="logo-badge">📅</div>
+      <div class="logo-text">
+        <h1>Portal de Atención</h1>
+        <span>Recepción y Seguimiento de Tickets</span>
+      </div>
+    </a>
+    <nav class="main-nav">
+      <a href="/" class="nav-link">Crear Ticket</a>
+      <a href="/seguimiento" class="nav-link">Consultar Estado</a>
+      <a href="/admin" class="nav-link btn-admin-nav"><span>🔒</span> Panel Admin</a>
+    </nav>
+  </header>
+
+  <main class="main-container">
+
+    <!-- Loading State -->
+    <div id="loading-box" style="text-align: center; padding: 4rem;">
+      <div style="font-size: 2rem; margin-bottom: 1rem;">⏳</div>
+      <p style="color: var(--gray-600); font-weight: 600;">Cargando información del ticket...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="error-box" class="surface-card" style="display: none; max-width: 600px; margin: 3rem auto; text-align: center;">
+      <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+      <h3 style="font-size: 1.4rem; font-weight: 700; color: var(--danger);">Ticket no encontrado</h3>
+      <p style="color: var(--gray-600); margin: 1rem 0 1.5rem 0;" id="error-message">
+        No se localizó ningún reporte con este identificador. Por favor verifica el enlace o código ingresado.
+      </p>
+      <a href="/seguimiento" class="btn btn-primary">Volver al Buscador</a>
+    </div>
+
+    <!-- Ticket Detail & Tracking Container -->
+    <div id="ticket-content" style="display: none; max-width: 900px; margin: 0 auto;">
+
+      <!-- Header Card with Status & Stepper -->
+      <div class="surface-card" style="margin-bottom: 1.5rem;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; border-bottom: 1px solid var(--gray-200); padding-bottom: 1.25rem;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+              <span id="ticket-id" style="font-size: 1.4rem; font-weight: 800; color: var(--primary);">TCK-XXXX</span>
+              <button id="btn-copy-code" class="btn btn-secondary btn-sm" title="Copiar enlace">🔗 Compartir Enlace</button>
+            </div>
+            <h2 id="ticket-title" style="font-size: 1.4rem; font-weight: 700; color: var(--gray-900);">Título del reporte</h2>
+            <p style="font-size: 0.85rem; color: var(--gray-500); margin-top: 0.3rem;">
+              Reportado por <strong id="ticket-requester">-</strong> &bull; Creado el <span id="ticket-created-at">-</span>
+            </p>
+          </div>
+
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <div id="ticket-priority-badge"></div>
+            <div id="ticket-status-badge"></div>
+            <button id="btn-refresh" class="btn btn-secondary btn-sm" title="Actualizar">🔄</button>
+          </div>
+        </div>
+
+        <!-- Línea de Tiempo Visual (Stepper) -->
+        <div class="timeline-stepper">
+          <div class="stepper-progress" id="stepper-bar" style="width: 0%;"></div>
+          
+          <div class="step-node" id="step-pendiente">
+            <div class="step-circle">1</div>
+            <span class="step-label">🟡 Pendiente</span>
+          </div>
+
+          <div class="step-node" id="step-en_proceso">
+            <div class="step-circle">2</div>
+            <span class="step-label">🔵 En Proceso</span>
+          </div>
+
+          <div class="step-node" id="step-resuelto">
+            <div class="step-circle">3</div>
+            <span class="step-label">🟢 Resuelto</span>
+          </div>
+
+          <div class="step-node" id="step-cerrado">
+            <div class="step-circle">4</div>
+            <span class="step-label">⚪ Cerrado</span>
+          </div>
+        </div>
+
+        <!-- Mensaje Explicativo del Estado Actual -->
+        <div id="status-explanation-banner" style="padding: 1rem 1.25rem; border-radius: var(--radius-md); font-size: 0.92rem; font-weight: 500; display: flex; align-items: center; gap: 0.75rem;">
+          <!-- Contenido dinámico según estado -->
+        </div>
+
+      </div>
+
+      <!-- Detalle del Reporte Original -->
+      <div class="surface-card" style="margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--gray-800);">
+          📋 Descripción del Reporte
+        </h3>
+        <div style="display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--gray-600);">
+          <span><strong>Categoría:</strong> <span id="ticket-category">-</span></span>
+          <span><strong>Última actualización:</strong> <span id="ticket-updated-at">-</span></span>
+        </div>
+        <div id="ticket-desc" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; color: var(--gray-700); background: var(--gray-50); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--gray-200);">
+          -
+        </div>
+      </div>
+
+      <!-- Muro de Comunicación y Respuestas -->
+      <div class="surface-card">
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--gray-800); display: flex; justify-content: space-between; align-items: center;">
+          <span>💬 Muro de Actualizaciones y Respuestas</span>
+          <span id="activity-count" style="font-size: 0.8rem; font-weight: 600; color: var(--gray-500);">0 eventos</span>
+        </h3>
+
+        <!-- Stream de Mensajes y Eventos -->
+        <div class="activity-stream" id="activity-list">
+          <!-- Renderizado dinámico -->
+        </div>
+
+        <!-- Formulario para que el Solicitante agregue un comentario -->
+        <div id="reply-container" style="margin-top: 2rem; border-top: 1px solid var(--gray-200); padding-top: 1.5rem;">
+          <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--gray-800);">
+            ¿Deseas añadir más información o responder al equipo?
+          </h4>
+          <form id="comment-form">
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <textarea id="comment-text" class="form-textarea" placeholder="Escribe tu mensaje, duda o información complementaria..." required style="min-height: 90px;"></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+              <button type="submit" id="btn-send-comment" class="btn btn-primary btn-sm">
+                💬 Enviar Mensaje al Equipo
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Banner si el ticket ya está cerrado -->
+        <div id="ticket-closed-banner" style="display: none; margin-top: 1.5rem; padding: 1rem; border-radius: var(--radius-md); background: var(--gray-100); text-align: center; color: var(--gray-600); font-size: 0.9rem;">
+          🔒 <strong>Este ticket ha sido cerrado.</strong> El ciclo de atención para este reporte ha concluido. Si tienes una nueva incidencia, puedes crear un nuevo ticket.
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer style="text-align: center; padding: 2rem; color: var(--gray-500); font-size: 0.85rem; border-top: 1px solid var(--gray-200); margin-top: 3rem; background: white;">
+    Sistema de Agenda Diaria y Control de Tickets &bull; Seguimiento Virtual de Reportes
+  </footer>
+
+  <script src="/js/app.js"></script>
+  <script>
+    // Extract ticket ID from URL: e.g. /ticket/TCK-2026-X8F2
+    const pathParts = window.location.pathname.split('/');
+    const ticketId = pathParts[pathParts.length - 1];
+
+    const loadingBox = document.getElementById('loading-box');
+    const errorBox = document.getElementById('error-box');
+    const ticketContent = document.getElementById('ticket-content');
+
+    let currentTicketData = null;
+
+    async function loadTicket() {
+      try {
+        const res = await fetch(`/api/tickets/${ticketId}`);
+        if (!res.ok) {
+          throw new Error('Ticket no encontrado');
+        }
+        const ticket = await res.json();
+        currentTicketData = ticket;
+        renderTicket(ticket);
+        loadingBox.style.display = 'none';
+        errorBox.style.display = 'none';
+        ticketContent.style.display = 'block';
+      } catch (err) {
+        loadingBox.style.display = 'none';
+        errorBox.style.display = 'block';
+        ticketContent.style.display = 'none';
+      }
+    }
+
+    function renderTicket(t) {
+      document.getElementById('ticket-id').textContent = t.id;
+      document.getElementById('ticket-title').textContent = t.title;
+      document.getElementById('ticket-requester').textContent = t.requesterName;
+      document.getElementById('ticket-created-at').textContent = formatDate(t.createdAt);
+      document.getElementById('ticket-updated-at').textContent = formatRelativeTime(t.updatedAt);
+      document.getElementById('ticket-category').textContent = t.category;
+      document.getElementById('ticket-desc').textContent = t.description;
+
+      // Badges
+      document.getElementById('ticket-status-badge').innerHTML = getStatusBadge(t.status);
+      document.getElementById('ticket-priority-badge').innerHTML = getPriorityBadge(t.priority);
+
+      // Stepper
+      updateStepper(t.status);
+
+      // Status explanation banner
+      const banner = document.getElementById('status-explanation-banner');
+      if (t.status === 'pendiente') {
+        banner.style.background = '#fef3c7';
+        banner.style.color = '#92400e';
+        banner.innerHTML = '🕒 <strong>Ticket Recibido:</strong> Tu reporte está en la agenda del día y será asignado a un agente a la brevedad.';
+      } else if (t.status === 'en_proceso') {
+        banner.style.background = '#e0f2fe';
+        banner.style.color = '#0369a1';
+        banner.innerHTML = '⚡ <strong>En Atención Activa:</strong> Un especialista del equipo está trabajando actualmente en este reporte.';
+      } else if (t.status === 'resuelto') {
+        banner.style.background = '#dcfce7';
+        banner.style.color = '#15803d';
+        banner.innerHTML = '🎉 <strong>Ticket Resuelto:</strong> La solución ha sido aplicada. Por favor revisa las notas del equipo a continuación.';
+      } else if (t.status === 'cerrado') {
+        banner.style.background = '#f1f5f9';
+        banner.style.color = '#475569';
+        banner.innerHTML = '✅ <strong>Ticket Cerrado:</strong> El reporte ha finalizado su ciclo satisfactoriamente.';
+      }
+
+      // Activity Stream
+      const activityList = document.getElementById('activity-list');
+      document.getElementById('activity-count').textContent = `${t.history.length} eventos`;
+
+      activityList.innerHTML = t.history.map(item => {
+        let avatar = '👤';
+        let bg = 'var(--gray-200)';
+        let isStaff = item.author === 'admin';
+
+        if (isStaff) {
+          avatar = '🛡️';
+          bg = '#dbeafe';
+        } else if (item.type === 'created') {
+          avatar = '📝';
+          bg = '#fef3c7';
+        }
+
+        return `
+          <div class="activity-item">
+            <div class="activity-avatar" style="background: ${bg};">${avatar}</div>
+            <div class="activity-content" style="${isStaff ? 'border-color: #93c5fd; background: #f8fafc;' : ''}">
+              <div class="activity-header">
+                <div>
+                  <span class="activity-author">${item.authorName || 'Usuario'}</span>
+                  ${isStaff ? '<span style="font-size: 0.72rem; background: var(--primary); color: white; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Soporte Oficial</span>' : ''}
+                </div>
+                <span class="activity-time">${formatDate(item.timestamp)} (${formatRelativeTime(item.timestamp)})</span>
+              </div>
+              <div class="activity-body">${item.message}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Reply form visibility
+      const replyContainer = document.getElementById('reply-container');
+      const closedBanner = document.getElementById('ticket-closed-banner');
+
+      if (t.status === 'cerrado') {
+        replyContainer.style.display = 'none';
+        closedBanner.style.display = 'block';
+      } else {
+        replyContainer.style.display = 'block';
+        closedBanner.style.display = 'none';
+      }
+    }
+
+    function updateStepper(status) {
+      const steps = ['pendiente', 'en_proceso', 'resuelto', 'cerrado'];
+      const currentIdx = steps.indexOf(status);
+
+      const stepperBar = document.getElementById('stepper-bar');
+      const percentages = ['0%', '33%', '66%', '90%'];
+      stepperBar.style.width = percentages[currentIdx] || '0%';
+
+      steps.forEach((s, idx) => {
+        const el = document.getElementById(`step-${s}`);
+        el.classList.remove('active', 'completed');
+        if (idx < currentIdx) {
+          el.classList.add('completed');
+          el.querySelector('.step-circle').textContent = '✓';
+        } else if (idx === currentIdx) {
+          el.classList.add('active');
+          el.querySelector('.step-circle').textContent = idx + 1;
+        } else {
+          el.querySelector('.step-circle').textContent = idx + 1;
+        }
+      });
+    }
+
+    // Comment submission
+    document.getElementById('comment-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const commentInput = document.getElementById('comment-text');
+      const message = commentInput.value.trim();
+      const btn = document.getElementById('btn-send-comment');
+
+      if (!message) return;
+
+      try {
+        btn.disabled = true;
+        btn.textContent = 'Enviando...';
+
+        const res = await fetch(`/api/tickets/${ticketId}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message,
+            authorName: currentTicketData.requesterName
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al enviar mensaje');
+
+        commentInput.value = '';
+        showToast('Mensaje añadido al ticket', 'success');
+        await loadTicket();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💬 Enviar Mensaje al Equipo';
+      }
+    });
+
+    // Copy direct link
+    document.getElementById('btn-copy-code').addEventListener('click', () => {
+      copyToClipboard(window.location.href, '¡Enlace directo al ticket copiado!');
+    });
+
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      loadTicket();
+      showToast('Datos actualizados', 'info');
+    });
+
+    // Initial load
+    loadTicket();
+
+    // Auto-refresh every 30 seconds for live updates
+    setInterval(loadTicket, 30000);
+  </script>
+</body>
+</html>

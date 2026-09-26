@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal de Reportes y Tickets - Agenda Diaria</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- Encabezado Principal -->
+  <header class="app-header">
+    <a href="/" class="logo-container">
+      <div class="logo-badge">📅</div>
+      <div class="logo-text">
+        <h1 id="brand-name">Portal de Atención</h1>
+        <span>Recepción y Seguimiento de Tickets</span>
+      </div>
+    </a>
+    <nav class="main-nav">
+      <a href="/" class="nav-link active">Crear Ticket</a>
+      <a href="/seguimiento" class="nav-link">Consultar Estado</a>
+      <a href="/admin" class="nav-link btn-admin-nav"><span>🔒</span> Panel Admin</a>
+    </nav>
+  </header>
+
+  <main class="main-container">
+
+    <!-- Hero Introductorio -->
+    <section class="hero-box">
+      <h2>Centro Virtual de Reportes y Solicitudes</h2>
+      <p>Registra cualquier incidencia, requerimiento o reporte diario. Al enviar el formulario recibirás un código único para darle seguimiento en tiempo real hasta su resolución y cierre.</p>
+    </section>
+
+    <!-- Estado 1: Formulario de Creación -->
+    <div id="form-container" class="surface-card" style="max-width: 820px; margin: 0 auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--gray-200);">
+        <div>
+          <h3 style="font-size: 1.3rem; font-weight: 700;">📝 Formulario de Nuevo Reporte</h3>
+          <p style="font-size: 0.85rem; color: var(--gray-500); margin-top: 0.2rem;">Todos los campos marcados con <span style="color: var(--danger)">*</span> son requeridos.</p>
+        </div>
+        <a href="/seguimiento" class="btn btn-secondary btn-sm">¿Ya tienes un ticket? Rastrear</a>
+      </div>
+
+      <form id="ticket-form">
+        <div class="form-grid">
+          
+          <!-- Datos del Solicitante -->
+          <div class="form-group">
+            <label for="req-name">Nombre Completo <span class="req">*</span></label>
+            <input type="text" id="req-name" class="form-input" placeholder="Ej: María González" required>
+          </div>
+
+          <div class="form-group">
+            <label for="req-email">Correo Electrónico (Opcional)</label>
+            <input type="email" id="req-email" class="form-input" placeholder="maria@ejemplo.com">
+          </div>
+
+          <div class="form-group">
+            <label for="req-phone">Teléfono / WhatsApp (Opcional)</label>
+            <input type="tel" id="req-phone" class="form-input" placeholder="+52 55 1234 5678">
+          </div>
+
+          <div class="form-group">
+            <label for="category">Categoría del Reporte <span class="req">*</span></label>
+            <select id="category" class="form-select" required>
+              <option value="Incidencia">Incidencia / Falla</option>
+              <option value="Soporte Técnico">Soporte Técnico</option>
+              <option value="Solicitud de Servicio">Solicitud de Servicio</option>
+              <option value="Facturación / Pagos">Facturación / Pagos</option>
+              <option value="Mantenimiento">Mantenimiento</option>
+              <option value="Otro">Otro requerimiento</option>
+            </select>
+          </div>
+
+          <div class="form-group form-full">
+            <label for="priority">Nivel de Prioridad Estimada</label>
+            <select id="priority" class="form-select">
+              <option value="baja">🟢 Baja (Consulta o sugerencia)</option>
+              <option value="media" selected>🔹 Media (Afecta parcialmente)</option>
+              <option value="alta">⚡ Alta (Bloquea actividades importantes)</option>
+              <option value="urgente">🔥 Urgente (Interrupción total del servicio)</option>
+            </select>
+          </div>
+
+          <div class="form-group form-full">
+            <label for="title">Asunto o Resumen del Problema <span class="req">*</span></label>
+            <input type="text" id="title" class="form-input" placeholder="Ej: Error al emitir factura del día en sistema" required>
+          </div>
+
+          <div class="form-group form-full">
+            <label for="description">Descripción Detallada <span class="req">*</span></label>
+            <textarea id="description" class="form-textarea" placeholder="Explica detalladamente qué ocurre, pasos para reproducir o detalles importantes para el equipo..." required></textarea>
+          </div>
+
+        </div>
+
+        <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
+          <button type="submit" id="btn-submit" class="btn btn-primary" style="padding: 0.9rem 2.2rem; font-size: 1rem;">
+            🚀 Enviar Reporte y Obtener Código
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Estado 2: Confirmación Exitosa con Código y Enlace -->
+    <div id="success-container" class="surface-card" style="display: none; max-width: 720px; margin: 0 auto; text-align: center;">
+      <div class="success-banner">
+        <div style="font-size: 3rem; margin-bottom: 0.5rem;">🎉</div>
+        <h2 style="font-size: 1.8rem; font-weight: 800;">¡Tu reporte ha sido registrado con éxito!</h2>
+        <p style="opacity: 0.9; margin-top: 0.5rem;">Se ha añadido a la agenda del día para atención inmediata.</p>
+        
+        <div class="ticket-code-pill" id="generated-ticket-code">TCK-XXXX</div>
+        
+        <p style="font-size: 0.9rem; opacity: 0.95;">
+          Guarda este código para consultar el estado en cualquier momento.
+        </p>
+      </div>
+
+      <div style="background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 2rem;">
+        <label style="font-size: 0.85rem; font-weight: 700; color: var(--gray-600); display: block; margin-bottom: 0.5rem;">
+          🔗 Enlace directo de seguimiento para compartir o guardar:
+        </label>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" id="tracking-link-input" class="form-input" readonly style="background: white; font-weight: 600;">
+          <button type="button" id="btn-copy-link" class="btn btn-secondary">📋 Copiar Enlace</button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+        <a id="btn-go-to-tracking" href="#" class="btn btn-primary" style="padding: 0.85rem 1.75rem;">
+          🔍 Ver Seguimiento en Tiempo Real
+        </a>
+        <button type="button" id="btn-create-another" class="btn btn-secondary">
+          ➕ Crear Otro Reporte
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <footer style="text-align: center; padding: 2rem; color: var(--gray-500); font-size: 0.85rem; border-top: 1px solid var(--gray-200); margin-top: 3rem; background: white;">
+    Sistema de Agenda Diaria y Control de Tickets &bull; Seguimiento Virtual de Reportes
+  </footer>
+
+  <script src="/js/app.js"></script>
+  <script>
+    const ticketForm = document.getElementById('ticket-form');
+    const formContainer = document.getElementById('form-container');
+    const successContainer = document.getElementById('success-container');
+    const generatedTicketCode = document.getElementById('generated-ticket-code');
+    const trackingLinkInput = document.getElementById('tracking-link-input');
+    const btnCopyLink = document.getElementById('btn-copy-link');
+    const btnGoToTracking = document.getElementById('btn-go-to-tracking');
+    const btnCreateAnother = document.getElementById('btn-create-another');
+    const btnSubmit = document.getElementById('btn-submit');
+
+    ticketForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const payload = {
+        title: document.getElementById('title').value,
+        description: document.getElementById('description').value,
+        category: document.getElementById('category').value,
+        priority: document.getElementById('priority').value,
+        requester: {
+          name: document.getElementById('req-name').value,
+          email: document.getElementById('req-email').value,
+          phone: document.getElementById('req-phone').value
+        }
+      };
+
+      try {
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = 'Enviando reporte...';
+
+        const res = await fetch('/api/tickets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al crear ticket');
+
+        // Store ticket in user's localStorage for quick tracking history
+        const myRecentTickets = JSON.parse(localStorage.getItem('my_recent_tickets') || '[]');
+        myRecentTickets.unshift({
+          id: data.ticket.id,
+          title: data.ticket.title,
+          createdAt: data.ticket.createdAt
+        });
+        localStorage.setItem('my_recent_tickets', JSON.stringify(myRecentTickets.slice(0, 10)));
+
+        // Show success screen
+        const fullUrl = `${window.location.origin}/ticket/${data.ticket.id}`;
+        generatedTicketCode.textContent = data.ticket.id;
+        trackingLinkInput.value = fullUrl;
+        btnGoToTracking.href = `/ticket/${data.ticket.id}`;
+
+        formContainer.style.display = 'none';
+        successContainer.style.display = 'block';
+        window.scrollTo({ top: 100, behavior: 'smooth' });
+
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = '🚀 Enviar Reporte y Obtener Código';
+      }
+    });
+
+    btnCopyLink.addEventListener('click', () => {
+      copyToClipboard(trackingLinkInput.value, '¡Enlace de seguimiento copiado!');
+    });
+
+    btnCreateAnother.addEventListener('click', () => {
+      ticketForm.reset();
+      successContainer.style.display = 'none';
+      formContainer.style.display = 'block';
+    });
+  </script>
+</body>
+</html>

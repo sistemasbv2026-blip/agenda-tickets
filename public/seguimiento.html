@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consultar Estado de Ticket - Agenda y Seguimiento</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- Encabezado -->
+  <header class="app-header">
+    <a href="/" class="logo-container">
+      <div class="logo-badge">📅</div>
+      <div class="logo-text">
+        <h1>Portal de Atención</h1>
+        <span>Recepción y Seguimiento de Tickets</span>
+      </div>
+    </a>
+    <nav class="main-nav">
+      <a href="/" class="nav-link">Crear Ticket</a>
+      <a href="/seguimiento" class="nav-link active">Consultar Estado</a>
+      <a href="/admin" class="nav-link btn-admin-nav"><span>🔒</span> Panel Admin</a>
+    </nav>
+  </header>
+
+  <main class="main-container">
+
+    <section class="hero-box">
+      <h2>Rastreo y Seguimiento de Tickets</h2>
+      <p>Ingresa el código único proporcionado al momento de crear tu reporte para consultar su estado en tiempo real, ver respuestas del equipo o enviar actualizaciones.</p>
+    </section>
+
+    <!-- Buscador de Ticket -->
+    <div class="surface-card" style="max-width: 680px; margin: 0 auto 2rem auto;">
+      <form id="search-form" style="display: flex; gap: 0.75rem;">
+        <input type="text" id="ticket-id-input" class="form-input" placeholder="Ej: TCK-2026-A1B2..." required style="text-transform: uppercase; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em;">
+        <button type="submit" class="btn btn-primary" style="white-space: nowrap; padding: 0 1.75rem;">
+          🔍 Consultar
+        </button>
+      </form>
+    </div>
+
+    <!-- Lista de Tickets Recientes en este Navegador -->
+    <div id="recent-tickets-container" class="surface-card" style="max-width: 680px; margin: 0 auto; display: none;">
+      <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--gray-800);">
+        🕒 Tus Reportes Recientes
+      </h3>
+      <div id="recent-tickets-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <!-- Se rellena dinámicamente -->
+      </div>
+    </div>
+
+  </main>
+
+  <footer style="text-align: center; padding: 2rem; color: var(--gray-500); font-size: 0.85rem; border-top: 1px solid var(--gray-200); margin-top: 3rem; background: white;">
+    Sistema de Agenda Diaria y Control de Tickets &bull; Seguimiento Virtual de Reportes
+  </footer>
+
+  <script src="/js/app.js"></script>
+  <script>
+    const searchForm = document.getElementById('search-form');
+    const ticketIdInput = document.getElementById('ticket-id-input');
+    const recentTicketsContainer = document.getElementById('recent-tickets-container');
+    const recentTicketsList = document.getElementById('recent-tickets-list');
+
+    searchForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const code = ticketIdInput.value.trim().toUpperCase();
+      if (code) {
+        window.location.href = `/ticket/${code}`;
+      }
+    });
+
+    // Load recent tickets from localStorage
+    function loadRecentTickets() {
+      const recents = JSON.parse(localStorage.getItem('my_recent_tickets') || '[]');
+      if (recents.length > 0) {
+        recentTicketsContainer.style.display = 'block';
+        recentTicketsList.innerHTML = recents.map(t => `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.85rem 1rem; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-md);">
+            <div>
+              <span style="font-weight: 800; color: var(--primary); font-size: 0.95rem;">${t.id}</span>
+              <p style="font-size: 0.9rem; color: var(--gray-700); margin-top: 0.2rem; font-weight: 500;">${t.title}</p>
+              <span style="font-size: 0.78rem; color: var(--gray-400);">${formatDate(t.createdAt)}</span>
+            </div>
+            <a href="/ticket/${t.id}" class="btn btn-secondary btn-sm">Ver Estado &rarr;</a>
+          </div>
+        `).join('');
+      }
+    }
+
+    loadRecentTickets();
+  </script>
+</body>
+</html>
