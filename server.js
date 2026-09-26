@@ -2,9 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const db = require('./db');
+const mailer = require('./mailer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0';
 
 app.use(cors());
 app.use(express.json());
@@ -38,6 +40,12 @@ app.post('/api/tickets', (req, res) => {
   try {
     const { title, description, category, priority, requester } = req.body;
     const ticket = db.createTicket({ title, description, category, priority, requester });
+
+    // Asynchronously send confirmation email if email was provided
+    mailer.sendTicketCreatedEmail(ticket, req).catch(err => {
+      console.warn('No se pudo enviar confirmación por correo:', err.message);
+    });
+
     res.status(201).json({
       success: true,
       ticket: {
@@ -141,25 +149,40 @@ app.get('/api/admin/tickets/:id', requireAdmin, (req, res) => {
 });
 
 // Update ticket status
-app.patch('/api/admin/tickets/:id/status', requireAdmin, (req, res) => {
+app.patch('/api/admin/tickets/:id/status', requireAdmin, async (req, res) => {
   try {
     const { status, comment, adminName } = req.body;
-    const ticket = db.updateTicketStatus(req.params.id, status, comment, adminName || 'Administrador');
+    const oldTicket = db.getTicketById(req.params.id);
+    const oldStatus = oldTicket ? oldTicket.status : '';
+
+    const ticket = db.updateTicketStatus(req.params.id, status, comment, adminName || 'Departamento de Sistemas');
+
+    // Notify requester via email of status change
+    mailer.sendStatusChangeEmail(ticket, oldStatus, status, comment, adminName || 'Departamento de Sistemas', req).catch(err => {
+      console.warn('Error al enviar notificación de cambio de estado por correo:', err.message);
+    });
+
     res.json({ success: true, ticket });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// Admin posts public response/message
-app.post('/api/admin/tickets/:id/comments', requireAdmin, (req, res) => {
+// Admin posts public response/message (Sends email to requester!)
+app.post('/api/admin/tickets/:id/comments', requireAdmin, async (req, res) => {
   try {
     const { message, adminName } = req.body;
     const ticket = db.addComment(req.params.id, {
       author: 'admin',
-      authorName: adminName || 'Soporte / Administrador',
+      authorName: adminName || 'Departamento de Sistemas',
       message
     });
+
+    // Send email notification with the response directly to requester's email
+    mailer.sendAdminReplyEmail(ticket, message, adminName || 'Departamento de Sistemas', req).catch(err => {
+      console.warn('Error al enviar respuesta por correo al solicitante:', err.message);
+    });
+
     res.json({ success: true, ticket });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -170,10 +193,66 @@ app.post('/api/admin/tickets/:id/comments', requireAdmin, (req, res) => {
 app.post('/api/admin/tickets/:id/notes', requireAdmin, (req, res) => {
   try {
     const { note, adminName } = req.body;
-    const ticket = db.addInternalNote(req.params.id, note, adminName || 'Administrador');
+    const ticket = db.addInternalNote(req.params.id, note, adminName || 'Departamento de Sistemas');
     res.json({ success: true, ticket });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// Get current SMTP Configuration (masked password)
+app.get('/api/admin/smtp', requireAdmin, (req, res) => {
+  const config = db.getConfig();
+  const smtp = config.smtp || {};
+  res.json({
+    host: smtp.host || process.env.SMTP_HOST || '',
+    port: smtp.port || process.env.SMTP_PORT || 587,
+    user: smtp.user || process.env.SMTP_USER || '',
+    fromName: smtp.fromName || process.env.SMTP_FROM_NAME || 'Departamento de Sistemas',
+    fromEmail: smtp.fromEmail || process.env.SMTP_FROM_EMAIL || '',
+    hasPass: !!(smtp.pass || process.env.SMTP_PASS),
+    publicBaseUrl: config.publicBaseUrl || process.env.PUBLIC_BASE_URL || ''
+  });
+});
+
+// Update SMTP Configuration
+app.post('/api/admin/smtp', requireAdmin, (req, res) => {
+  try {
+    const { host, port, user, pass, fromName, fromEmail, publicBaseUrl } = req.body;
+    const current = db.getConfig();
+    const existingSmtp = current.smtp || {};
+
+    const updatedSmtp = {
+      host: (host || '').trim(),
+      port: Number(port) || 587,
+      user: (user || '').trim(),
+      pass: pass ? pass.trim() : existingSmtp.pass || '',
+      fromName: (fromName || 'Departamento de Sistemas').trim(),
+      fromEmail: (fromEmail || user || '').trim()
+    };
+
+    db.updateConfig({
+      smtp: updatedSmtp,
+      publicBaseUrl: (publicBaseUrl || '').trim()
+    });
+
+    res.json({ success: true, message: 'Configuración de correo guardada exitosamente.' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Test SMTP Configuration
+app.post('/api/admin/smtp/test', requireAdmin, async (req, res) => {
+  try {
+    const { testEmail } = req.body;
+    if (!testEmail || !testEmail.includes('@')) {
+      return res.status(400).json({ error: 'Ingresa un correo electrónico válido para la prueba.' });
+    }
+    await mailer.sendTestEmail(testEmail.trim());
+    res.json({ success: true, message: `Correo de prueba enviado exitosamente a ${testEmail}.` });
+  } catch (err) {
+    res.status(400).json({ error: 'Fallo al enviar correo: ' + err.message });
   }
 });
 
@@ -182,7 +261,6 @@ app.get('/api/admin/export', requireAdmin, (req, res) => {
   const { date, status } = req.query;
   const tickets = db.getTickets({ date, status });
 
-  // Build CSV
   const headers = ['ID', 'Fecha Creacion', 'Titulo', 'Categoria', 'Prioridad', 'Estado', 'Solicitante', 'Email', 'Telefono', 'Fecha Cierre'];
   const rows = tickets.map(t => [
     `"${t.id}"`,
@@ -223,8 +301,6 @@ app.get('/admin', (req, res) => {
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-
-const HOST = '0.0.0.0';
 
 app.listen(PORT, HOST, () => {
   console.log(`=======================================================`);

@@ -7,11 +7,17 @@
     "start": "node server.js",
     "dev": "node --watch server.js"
   },
-  "keywords": ["tickets", "agenda", "soporte", "kanban"],
+  "keywords": [
+    "tickets",
+    "agenda",
+    "soporte",
+    "kanban"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "nodemailer": "^10.0.10"
   }
 }

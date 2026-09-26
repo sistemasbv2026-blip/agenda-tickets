@@ -301,24 +301,87 @@
     </div>
   </dialog>
 
-  <!-- Modal de Ajustes (Cambiar PIN) -->
-  <dialog id="settings-modal" class="custom-modal" style="max-width: 450px;">
+  <!-- Modal de Ajustes (Cambiar PIN y Configuración de Correo) -->
+  <dialog id="settings-modal" class="custom-modal" style="max-width: 580px;">
     <div class="modal-header">
-      <h3 style="font-size: 1.1rem; font-weight: 700;">⚙️ Configuración del Panel</h3>
+      <h3 style="font-size: 1.15rem; font-weight: 700;">⚙️ Configuración del Sistema</h3>
       <button type="button" id="btn-close-settings" class="btn btn-secondary btn-sm">&times;</button>
     </div>
     <div class="modal-body">
-      <form id="change-pin-form">
-        <div class="form-group" style="margin-bottom: 1rem;">
-          <label for="current-pin">PIN Actual <span class="req">*</span></label>
-          <input type="password" id="current-pin" class="form-input" required>
+      
+      <!-- Sub-tabs en ajustes -->
+      <div style="display: flex; gap: 0.5rem; border-bottom: 2px solid var(--gray-200); margin-bottom: 1.25rem;">
+        <button type="button" class="tab-btn active" id="tab-btn-pin" onclick="switchSettingsTab('pin')">🔒 PIN de Sistemas</button>
+        <button type="button" class="tab-btn" id="tab-btn-smtp" onclick="switchSettingsTab('smtp')">✉️ Correo Saliente (SMTP)</button>
+      </div>
+
+      <!-- Tab PIN -->
+      <div id="settings-tab-pin">
+        <form id="change-pin-form">
+          <p style="font-size: 0.85rem; color: var(--gray-600); margin-bottom: 1rem;">
+            Cambia el PIN de acceso exclusivo para el personal del Departamento de Sistemas.
+          </p>
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label for="current-pin">PIN Actual <span class="req">*</span></label>
+            <input type="password" id="current-pin" class="form-input" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label for="new-pin">Nuevo PIN de Acceso <span class="req">*</span></label>
+            <input type="password" id="new-pin" class="form-input" minlength="4" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Guardar Nuevo PIN</button>
+        </form>
+      </div>
+
+      <!-- Tab SMTP -->
+      <div id="settings-tab-smtp" style="display: none;">
+        <p style="font-size: 0.85rem; color: var(--gray-600); margin-bottom: 1rem;">
+          Configura la cuenta de correo para que las respuestas y resoluciones lleguen automáticamente al correo del solicitante.
+        </p>
+
+        <form id="smtp-config-form">
+          <div class="form-grid" style="gap: 0.75rem;">
+            <div class="form-group">
+              <label for="smtp-host">Servidor SMTP <span class="req">*</span></label>
+              <input type="text" id="smtp-host" class="form-input" placeholder="smtp.office365.com o smtp.gmail.com" required>
+            </div>
+            <div class="form-group">
+              <label for="smtp-port">Puerto <span class="req">*</span></label>
+              <input type="number" id="smtp-port" class="form-input" value="587" required>
+            </div>
+            <div class="form-group">
+              <label for="smtp-user">Correo Remitente <span class="req">*</span></label>
+              <input type="email" id="smtp-user" class="form-input" placeholder="sistemas@tuempresa.com" required>
+            </div>
+            <div class="form-group">
+              <label for="smtp-pass">Contraseña o Clave de App <span class="req">*</span></label>
+              <input type="password" id="smtp-pass" class="form-input" placeholder="••••••••">
+            </div>
+            <div class="form-group">
+              <label for="smtp-from-name">Nombre Visible</label>
+              <input type="text" id="smtp-from-name" class="form-input" value="Departamento de Sistemas">
+            </div>
+            <div class="form-group">
+              <label for="smtp-base-url">Enlace Web Público (URL)</label>
+              <input type="url" id="smtp-base-url" class="form-input" placeholder="https://tu-app.onrender.com">
+            </div>
+          </div>
+
+          <div style="margin-top: 1rem;">
+            <button type="submit" id="btn-save-smtp" class="btn btn-primary btn-block">💾 Guardar Configuración de Correo</button>
+          </div>
+        </form>
+
+        <hr style="border: none; border-top: 1px solid var(--gray-200); margin: 1.5rem 0;">
+
+        <!-- Prueba de Envío -->
+        <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem;">🧪 Probar Envío de Correo</h4>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="email" id="test-email-input" class="form-input" placeholder="Ingresa tu correo para recibir una prueba...">
+          <button type="button" id="btn-send-test-email" class="btn btn-secondary" style="white-space: nowrap;">Enviar Prueba</button>
         </div>
-        <div class="form-group" style="margin-bottom: 1.25rem;">
-          <label for="new-pin">Nuevo PIN de Acceso <span class="req">*</span></label>
-          <input type="password" id="new-pin" class="form-input" minlength="4" required>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Guardar Nuevo PIN</button>
-      </form>
+      </div>
+
     </div>
   </dialog>
 
@@ -781,6 +844,97 @@
         showToast('PIN actualizado exitosamente', 'success');
       } catch (err) {
         showToast(err.message, 'error');
+      }
+    });
+
+    // Settings Tabs
+    window.switchSettingsTab = function(tab) {
+      document.getElementById('tab-btn-pin').classList.toggle('active', tab === 'pin');
+      document.getElementById('tab-btn-smtp').classList.toggle('active', tab === 'smtp');
+      document.getElementById('settings-tab-pin').style.display = tab === 'pin' ? 'block' : 'none';
+      document.getElementById('settings-tab-smtp').style.display = tab === 'smtp' ? 'block' : 'none';
+      if (tab === 'smtp') loadSmtpSettings();
+    };
+
+    async function loadSmtpSettings() {
+      try {
+        const res = await fetch('/api/admin/smtp', { headers: getAdminHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById('smtp-host').value = data.host || '';
+        document.getElementById('smtp-port').value = data.port || 587;
+        document.getElementById('smtp-user').value = data.user || '';
+        document.getElementById('smtp-from-name').value = data.fromName || 'Departamento de Sistemas';
+        document.getElementById('smtp-base-url').value = data.publicBaseUrl || window.location.origin;
+        if (data.hasPass) {
+          document.getElementById('smtp-pass').placeholder = '•••••••• (Guardada - déjala vacía para conservar)';
+        }
+      } catch (err) {
+        console.error('Error al cargar SMTP:', err);
+      }
+    }
+
+    // Save SMTP Config
+    document.getElementById('smtp-config-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btn-save-smtp');
+      btn.disabled = true;
+      btn.textContent = 'Guardando...';
+
+      const payload = {
+        host: document.getElementById('smtp-host').value,
+        port: document.getElementById('smtp-port').value,
+        user: document.getElementById('smtp-user').value,
+        pass: document.getElementById('smtp-pass').value,
+        fromName: document.getElementById('smtp-from-name').value,
+        publicBaseUrl: document.getElementById('smtp-base-url').value
+      };
+
+      try {
+        const res = await fetch('/api/admin/smtp', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al guardar');
+        showToast('Configuración de correo guardada con éxito', 'success');
+        document.getElementById('smtp-pass').value = '';
+        loadSmtpSettings();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Guardar Configuración de Correo';
+      }
+    });
+
+    // Test SMTP Email
+    document.getElementById('btn-send-test-email').addEventListener('click', async () => {
+      const testEmail = document.getElementById('test-email-input').value.trim();
+      const btn = document.getElementById('btn-send-test-email');
+      if (!testEmail || !testEmail.includes('@')) {
+        showToast('Ingresa un correo electrónico válido', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+
+      try {
+        const res = await fetch('/api/admin/smtp/test', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ testEmail })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Fallo de envío');
+        showToast(data.message, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Enviar Prueba';
       }
     });
 
