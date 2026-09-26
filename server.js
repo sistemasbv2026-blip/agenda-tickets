@@ -15,7 +15,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Admin authentication middleware
 function requireAdmin(req, res, next) {
-  const pinHeader = req.headers['x-admin-pin'] || (req.headers.authorization && req.headers.authorization.replace('Bearer ', ''));
+  const pinHeader = req.headers['x-admin-pin'] ||
+                    (req.headers.authorization && req.headers.authorization.replace('Bearer ', '')) ||
+                    req.query.pin;
   if (!pinHeader || !db.verifyAdminPin(pinHeader)) {
     return res.status(401).json({ error: 'No autorizado. PIN de administrador incorrecto o ausente.' });
   }

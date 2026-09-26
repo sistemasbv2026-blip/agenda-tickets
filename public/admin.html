@@ -598,13 +598,34 @@
       showToast('Datos actualizados', 'info');
     });
 
-    // Export CSV
+    // Helper para descargar reportes autorizados
+    async function downloadReportFile(url, defaultFilename) {
+      try {
+        showToast('Generando archivo de reporte...', 'info');
+        const res = await fetch(url, { headers: getAdminHeaders() });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Error al descargar');
+        }
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = defaultFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+        showToast('¡Reporte descargado exitosamente!', 'success');
+      } catch (err) {
+        showToast('Error al descargar: ' + err.message, 'error');
+      }
+    }
+
+    // Export CSV Diario o Filtrado
     btnExportCsv.addEventListener('click', () => {
       const url = `/api/admin/export?date=${selectedDate || ''}`;
-      const win = window.open(url, '_blank');
-      if (!win) {
-        window.location.href = url;
-      }
+      downloadReportFile(url, `reporte_tickets_${selectedDate || 'completo'}.csv`);
     });
 
     // Fetch and render data
@@ -1159,7 +1180,8 @@
 
     btnDownloadMonthlyCsv.addEventListener('click', () => {
       const ym = monthlyPicker.value || getCurrentMonthString();
-      window.open(`/api/admin/export?month=${ym}`, '_blank');
+      const url = `/api/admin/export?month=${ym}&pin=${encodeURIComponent(adminPin)}`;
+      downloadReportFile(url, `reporte_mensual_tickets_${ym}.csv`);
     });
 
     async function loadMonthlyReport(ym) {
