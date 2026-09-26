@@ -91,41 +91,137 @@ function getBaseUrl(req) {
   return 'http://localhost:3000';
 }
 
-const mailer = {
-  // Test SMTP connection and send a test email
-  async sendTestEmail(targetEmail) {
-    const transporter = getTransporter();
-    if (!transporter) {
-      throw new Error('La configuración SMTP está incompleta. Verifica servidor, usuario y contraseña.');
-    }
+const https = require('https');
 
-    try {
-      const info = await transporter.sendMail({
-        from: getSender(),
-        to: targetEmail,
-        subject: '✅ Prueba de Configuración de Correo - Agenda de Tickets',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-            <h2 style="color: #2563eb; margin-top: 0;">¡Conexión Exitosa! 🎉</h2>
-            <p>Este es un correo de prueba enviado desde tu <strong>Sistema de Agenda y Control de Tickets</strong>.</p>
-            <p>A partir de ahora, cuando el equipo de sistemas responda o actualice un ticket, la persona que lo creó recibirá una notificación automática por correo.</p>
-            <p>Asimismo, los avisos de nuevos tickets llegarán a los correos registrados para el equipo de Sistemas.</p>
-            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-            <small style="color: #64748b;">Departamento de Sistemas &bull; Notificación Automática</small>
-          </div>
-        `
+async function sendViaHttpApi(apiKey, { to, subject, html, fromName, fromEmail }) {
+  const cleanKey = apiKey.trim();
+  const recipients = Array.isArray(to) ? to : [to];
+
+  // Resend API (re_...)
+  if (cleanKey.startsWith('re_')) {
+    return new Promise((resolve, reject) => {
+      const payload = JSON.stringify({
+        from: `${fromName || 'Sistema de Tickets'} <onboarding@resend.dev>`,
+        to: recipients,
+        subject,
+        html
       });
-      return info;
-    } catch (err) {
-      let msg = err.message || '';
-      if (msg.includes('535') || msg.includes('BadCredentials') || msg.includes('Username and Password not accepted') || err.code === 'EAUTH') {
-        throw new Error('Error de credenciales (535): Usuario o contraseña incorrectos. Si usas Gmail, recuerda que debes generar y usar una Contraseña de Aplicación de 16 letras desde https://myaccount.google.com/apppasswords (no tu contraseña normal).');
-      }
-      if (msg.includes('ETIMEDOUT') || msg.includes('ESOCKETTIMEDOUT')) {
-        throw new Error('Tiempo de conexión agotado al conectar al servidor SMTP. Revisa que el host y puerto no estén bloqueados.');
-      }
-      throw err;
+
+      const req = https.request('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${cleanKey}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload)
+        }
+      }, res => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(JSON.parse(body || '{}'));
+          } else {
+            reject(new Error(`Resend API (${res.statusCode}): ${body}`));
+          }
+        });
+      });
+      req.on('error', reject);
+      req.write(payload);
+      req.end();
+    });
+  }
+
+  // Brevo API (xkeysib-...)
+  if (cleanKey.startsWith('xkeysib-')) {
+    return new Promise((resolve, reject) => {
+      const payload = JSON.stringify({
+        sender: { name: fromName || 'Departamento de Sistemas', email: fromEmail || 'sistemas@buenaventuraresort.com' },
+        to: recipients.map(e => ({ email: e })),
+        subject,
+        htmlContent: html
+      });
+
+      const req = https.request('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': cleanKey,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload)
+        }
+      }, res => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(JSON.parse(body || '{}'));
+          } else {
+            reject(new Error(`Brevo API (${res.statusCode}): ${body}`));
+          }
+        });
+      });
+      req.on('error', reject);
+      req.write(payload);
+      req.end();
+    });
+  }
+
+  return null;
+}
+
+async function sendEmailUniversal({ to, subject, html, fromName, fromEmail }) {
+  const config = db.getConfig();
+  const smtp = config.smtp || {};
+  const pass = (smtp.pass || process.env.SMTP_PASS || '').trim();
+  const cleanPass = pass.replace(/\s+/g, '');
+
+  // 1. Si la contraseña es una API Key de Resend (re_...) o Brevo (xkeysib-...), enviar por HTTPS (puerto 443)
+  if (cleanPass.startsWith('re_') || cleanPass.startsWith('xkeysib-')) {
+    return await sendViaHttpApi(cleanPass, { to, subject, html, fromName, fromEmail });
+  }
+
+  // 2. Envío por SMTP clásico
+  const transporter = getTransporter();
+  if (!transporter) {
+    throw new Error('La configuración de correo está incompleta. Ingresa servidor, usuario y contraseña o tu API Key.');
+  }
+
+  try {
+    const sender = `"${fromName || smtp.fromName || 'Departamento de Sistemas'}" <${fromEmail || smtp.fromEmail || smtp.user || 'no-reply@sistemas.com'}>`;
+    return await transporter.sendMail({
+      from: sender,
+      to,
+      subject,
+      html
+    });
+  } catch (err) {
+    let msg = err.message || '';
+    if (msg.includes('535') || msg.includes('BadCredentials') || err.code === 'EAUTH') {
+      throw new Error('Error de autenticación (535): Credenciales no válidas. Si es Gmail, asegúrate de haber creado una Contraseña de Aplicación de 16 caracteres.');
     }
+    if (msg.includes('ETIMEDOUT') || msg.includes('ESOCKETTIMEDOUT') || msg.includes('Connection timeout') || msg.includes('timeout')) {
+      throw new Error('Render bloquea las conexiones SMTP salientes en cuentas gratuitas (puertos 465 y 587). Para enviar correos gratis en Render, usa una API Key gratuita de Resend (resend.com) en el campo de contraseña.');
+    }
+    throw err;
+  }
+}
+
+const mailer = {
+  // Test connection and send a test email
+  async sendTestEmail(targetEmail) {
+    return await sendEmailUniversal({
+      to: targetEmail,
+      subject: '✅ Prueba de Configuración de Correo - Agenda de Tickets',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #2563eb; margin-top: 0;">¡Conexión Exitosa! 🎉</h2>
+          <p>Este es un correo de prueba enviado desde tu <strong>Sistema de Agenda y Control de Tickets</strong>.</p>
+          <p>A partir de ahora, cuando el equipo de sistemas responda o actualice un ticket, la persona que lo creó recibirá una notificación automática por correo.</p>
+          <p>Asimismo, los avisos de nuevos tickets llegarán a los correos registrados para el equipo de Sistemas.</p>
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+          <small style="color: #64748b;">Departamento de Sistemas &bull; Notificación Automática</small>
+        </div>
+      `
+    });
   },
 
   // Notify requester when admin writes a response
@@ -202,15 +298,14 @@ const mailer = {
     `;
 
     try {
-      const info = await transporter.sendMail({
-        from: getSender(),
+      const info = await sendEmailUniversal({
         to,
         subject: `[${ticket.id}] Nueva respuesta: ${ticket.title}`,
         html: htmlContent
       });
-      return { success: true, messageId: info.messageId };
+      return { success: true, messageId: info.messageId || 'ok' };
     } catch (err) {
-      console.error('Error enviando correo de respuesta:', err);
+      console.error('Error enviando correo de respuesta:', err.message);
       return { success: false, error: err.message };
     }
   },
@@ -221,9 +316,6 @@ const mailer = {
     if (!to || !to.includes('@')) {
       return { skipped: true, reason: 'Sin correo' };
     }
-
-    const transporter = getTransporter();
-    if (!transporter) return { skipped: true, reason: 'SMTP no configurado' };
 
     const statusNames = {
       pendiente: '🟡 PENDIENTE',
@@ -265,15 +357,14 @@ const mailer = {
     `;
 
     try {
-      const info = await transporter.sendMail({
-        from: getSender(),
+      const info = await sendEmailUniversal({
         to,
         subject: `[${ticket.id}] Estado actualizado a ${newStatusLabel}: ${ticket.title}`,
         html: htmlContent
       });
-      return { success: true, messageId: info.messageId };
+      return { success: true, messageId: info.messageId || 'ok' };
     } catch (err) {
-      console.error('Error enviando notificación de cambio de estado:', err);
+      console.error('Error enviando notificación de cambio de estado:', err.message);
       return { success: false, error: err.message };
     }
   },
@@ -282,9 +373,6 @@ const mailer = {
   async sendTicketCreatedEmail(ticket, req = null) {
     const to = ticket.requester?.email;
     if (!to || !to.includes('@')) return { skipped: true };
-
-    const transporter = getTransporter();
-    if (!transporter) return { skipped: true };
 
     const baseUrl = getBaseUrl(req);
     const trackingUrl = `${baseUrl}/ticket/${ticket.id}`;
@@ -312,18 +400,17 @@ const mailer = {
     `;
 
     try {
-      await transporter.sendMail({
-        from: getSender(),
+      await sendEmailUniversal({
         to,
         subject: `[${ticket.id}] Confirmación de Ticket Registrado: ${ticket.title}`,
         html: htmlContent
       });
     } catch (err) {
-      console.error('Error enviando confirmación de creación:', err);
+      console.error('Error enviando confirmación de creación:', err.message);
     }
   },
 
-  // Alert email sent to the 3 IT Department members when a new ticket is submitted
+  // Alert email sent to the IT Department members when a new ticket is submitted
   async sendNewTicketAlertToAdmin(ticket, req = null) {
     const config = db.getConfig();
     const alertEmailsStr = (config.smtp?.alertEmails || process.env.ADMIN_ALERT_EMAILS || '').trim();
@@ -334,11 +421,6 @@ const mailer = {
     const emails = alertEmailsStr.split(/[,;\s]+/).map(e => e.trim()).filter(e => e.includes('@'));
     if (emails.length === 0) {
       return { skipped: true, reason: 'No hay correos de alerta válidos' };
-    }
-
-    const transporter = getTransporter();
-    if (!transporter) {
-      return { skipped: true, reason: 'SMTP no configurado' };
     }
 
     const baseUrl = getBaseUrl(req);
@@ -381,19 +463,18 @@ const mailer = {
           </div>
         </div>
         <div style="background: #f8fafc; padding: 14px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0;">
-          Notificación automática enviada a los 3 integrantes de Sistemas &bull; Agenda de Tickets
+          Notificación automática enviada a Sistemas &bull; Agenda de Tickets
         </div>
       </div>
     `;
 
     try {
-      await transporter.sendMail({
-        from: getSender(),
+      await sendEmailUniversal({
         to: emails,
         subject: `🚨 [NUEVO TICKET ${ticket.id}] (${priorityEmoji}): ${ticket.title} - ${ticket.requester.name}`,
         html: htmlContent
       });
-      console.log(`✉️ Alerta de nuevo ticket enviada a integrantes de Sistemas: ${emails.join(', ')}`);
+      console.log(`✉️ Alerta de nuevo ticket enviada a: ${emails.join(', ')}`);
       return { success: true };
     } catch (err) {
       console.error('Error enviando alerta de nuevo ticket a Sistemas:', err.message);
