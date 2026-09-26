@@ -59,9 +59,11 @@
       </div>
     </a>
     <nav class="main-nav">
-      <a href="/" target="_blank" class="nav-link">↗ Ver Portal Público</a>
-      <button id="btn-settings" class="btn btn-secondary btn-sm">⚙️ Ajustes</button>
-      <button id="btn-logout" class="btn btn-danger btn-sm" style="display: none;">🚪 Salir</button>
+      <button type="button" id="btn-sound-toggle" class="btn btn-secondary btn-sm" title="Activar o silenciar sonido cuando entran nuevos tickets">🔔 Sonido: ON</button>
+      <button type="button" id="btn-open-monthly" class="btn btn-primary btn-sm">📊 Reporte Mensual</button>
+      <a href="/" target="_blank" class="nav-link">↗ Portal Público</a>
+      <button type="button" id="btn-settings" class="btn btn-secondary btn-sm">⚙️ Ajustes</button>
+      <button type="button" id="btn-logout" class="btn btn-danger btn-sm" style="display: none;">🚪 Salir</button>
     </nav>
   </header>
 
@@ -231,7 +233,7 @@
       <div style="background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 0.85rem; font-size: 0.85rem; margin-bottom: 1.25rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
         <div>👤 <strong>Solicitante:</strong> <span id="modal-requester-name">-</span></div>
         <div>✉️ <strong>Email:</strong> <span id="modal-requester-email">-</span></div>
-        <div>📞 <strong>Teléfono:</strong> <span id="modal-requester-phone">-</span></div>
+        <div>📞 <strong>Teléfono:</strong> <span id="modal-requester-phone">-</span> <span id="modal-whatsapp-badge"></span></div>
         <div>📁 <strong>Categoría:</strong> <span id="modal-category">-</span></div>
         <div>🕒 <strong>Creado:</strong> <span id="modal-created-at">-</span></div>
         <div>🔗 <strong>Seguimiento:</strong> <a id="modal-public-link" href="#" target="_blank" style="color: var(--primary); text-decoration: underline;">Abrir vista pública</a></div>
@@ -266,11 +268,17 @@
       <div id="tab-reply" class="tab-content">
         <form id="admin-reply-form">
           <div class="form-group" style="margin-bottom: 0.75rem;">
-            <label style="font-size: 0.85rem;">Mensaje público (el cliente lo verá en su enlace de seguimiento):</label>
+            <label style="font-size: 0.85rem;">Mensaje público (se enviará por correo y se actualizará en línea):</label>
             <textarea id="admin-reply-text" class="form-textarea" placeholder="Ej: Hemos validado tu reporte e iniciado la corrección del sistema..." required style="min-height: 80px;"></textarea>
           </div>
-          <div style="display: flex; justify-content: flex-end;">
-            <button type="submit" class="btn btn-primary btn-sm">Enviar Respuesta Pública</button>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+            <label id="whatsapp-toggle-label" style="font-size: 0.85rem; color: #15803d; display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+              <input type="checkbox" id="send-whatsapp-check" checked>
+              <span>📲 Abrir chat de WhatsApp para enviar respuesta</span>
+            </label>
+            <button type="submit" class="btn btn-primary btn-sm">
+              Enviar Respuesta Oficial
+            </button>
           </div>
         </form>
       </div>
@@ -379,6 +387,88 @@
         <div style="display: flex; gap: 0.5rem;">
           <input type="email" id="test-email-input" class="form-input" placeholder="Ingresa tu correo para recibir una prueba...">
           <button type="button" id="btn-send-test-email" class="btn btn-secondary" style="white-space: nowrap;">Enviar Prueba</button>
+        </div>
+      </div>
+
+    </div>
+  </dialog>
+
+  <!-- Modal de Reporte Mensual y Análisis de Repetidos -->
+  <dialog id="monthly-modal" class="custom-modal" style="max-width: 840px;">
+    <div class="modal-header">
+      <h3 style="font-size: 1.2rem; font-weight: 700;">📊 Reporte Mensual & Detección de Tickets Repetidos</h3>
+      <button type="button" id="btn-close-monthly" class="btn btn-secondary btn-sm">&times;</button>
+    </div>
+    <div class="modal-body">
+      
+      <!-- Selector de Mes y Exportación -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; background: var(--gray-50); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--gray-200); margin-bottom: 1.25rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <label style="font-weight: 700; font-size: 0.9rem;">Mes a Consultar:</label>
+          <input type="month" id="monthly-picker" class="form-input" style="width: auto; padding: 0.4rem 0.75rem;">
+          <button type="button" id="btn-reload-monthly" class="btn btn-secondary btn-sm">🔄</button>
+        </div>
+        <button type="button" id="btn-download-monthly-csv" class="btn btn-primary btn-sm">
+          📥 Descargar Todos los Tickets del Mes (CSV/Excel)
+        </button>
+      </div>
+
+      <!-- Resumen del Mes -->
+      <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 1.5rem;">
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #e2e8f0;">📑</div>
+          <div class="stat-info">
+            <h3 id="monthly-stat-total">0</h3>
+            <p>Total en el Mes</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #dcfce7; color: #15803d;">✅</div>
+          <div class="stat-info">
+            <h3 id="monthly-stat-resueltos">0</h3>
+            <p>Resueltos / Cerrados</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #fef3c7; color: #92400e;">⏳</div>
+          <div class="stat-info">
+            <h3 id="monthly-stat-pendientes">0</h3>
+            <p>Pendientes / En Curso</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección de Incidencias Repetidas -->
+      <div style="margin-bottom: 1.75rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <h4 style="font-size: 1rem; font-weight: 700; color: #b91c1c; display: flex; align-items: center; gap: 0.4rem;">
+            ⚠️ Incidencias Repetidas Identificadas en el Mes
+          </h4>
+          <span id="repeated-count-badge" class="badge" style="background: #fee2e2; color: #b91c1c;">0 repetidos</span>
+        </div>
+        <div id="monthly-repeated-container" style="border: 1px solid var(--gray-200); border-radius: var(--radius-md); overflow: hidden;">
+          <!-- Tabla de repetidos renderizada dinámicamente -->
+        </div>
+      </div>
+
+      <!-- Dos Columnas: Solicitantes frecuentes y Categorías -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div>
+          <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.6rem; color: var(--gray-800);">
+            👥 Solicitantes Frecuentes
+          </h4>
+          <div id="monthly-requesters-list" style="border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 0.75rem; max-height: 180px; overflow-y: auto; background: var(--gray-50);">
+            <!-- Lista de solicitantes -->
+          </div>
+        </div>
+
+        <div>
+          <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.6rem; color: var(--gray-800);">
+            📁 Incidencias por Categoría
+          </h4>
+          <div id="monthly-categories-list" style="border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 0.75rem; max-height: 180px; overflow-y: auto; background: var(--gray-50);">
+            <!-- Lista de categorías -->
+          </div>
         </div>
       </div>
 
@@ -530,9 +620,22 @@
           return;
         }
 
-        currentTickets = await ticketsRes.json();
+        const newTickets = await ticketsRes.json();
         const stats = await statsRes.json();
 
+        // Detección sonora de nuevos tickets entrantes
+        const newIds = newTickets.map(t => t.id);
+        if (!isFirstLoad) {
+          const freshArrivals = newTickets.filter(t => !knownTicketIds.has(t.id));
+          if (freshArrivals.length > 0) {
+            playNotificationSound();
+            showToast(`🔔 ¡${freshArrivals.length} nuevo(s) reporte(s) recibido(s) en la agenda!`, 'warning');
+          }
+        }
+        isFirstLoad = false;
+        knownTicketIds = new Set(newIds);
+
+        currentTickets = newTickets;
         renderStats(stats);
         filterAndRenderKanban();
       } catch (err) {
@@ -680,7 +783,25 @@
         document.getElementById('modal-ticket-title').textContent = t.title;
         document.getElementById('modal-requester-name').textContent = t.requester.name;
         document.getElementById('modal-requester-email').textContent = t.requester.email || 'No proporcionado';
-        document.getElementById('modal-requester-phone').textContent = t.requester.phone || 'No proporcionado';
+        
+        const phone = (t.requester.phone || '').trim();
+        const cleanPhone = phone.replace(/\D/g, '');
+        document.getElementById('modal-requester-phone').textContent = phone || 'No proporcionado';
+        
+        const whatsappBadge = document.getElementById('modal-whatsapp-badge');
+        const whatsappToggleLabel = document.getElementById('whatsapp-toggle-label');
+        const whatsappCheck = document.getElementById('send-whatsapp-check');
+
+        if (cleanPhone.length >= 8) {
+          whatsappBadge.innerHTML = `<a href="https://wa.me/${cleanPhone}" target="_blank" class="btn btn-sm" style="background: #25d366; color: white; padding: 2px 8px; margin-left: 6px; font-size: 0.75rem; text-decoration: none;">📲 Abrir WhatsApp</a>`;
+          whatsappToggleLabel.style.display = 'flex';
+          whatsappCheck.checked = true;
+        } else {
+          whatsappBadge.innerHTML = '';
+          whatsappToggleLabel.style.display = 'none';
+          whatsappCheck.checked = false;
+        }
+
         document.getElementById('modal-category').textContent = t.category;
         document.getElementById('modal-created-at').textContent = formatDate(t.createdAt);
         document.getElementById('modal-ticket-desc').textContent = t.description;
@@ -767,7 +888,7 @@
       });
     });
 
-    // Public reply submission
+    // Public reply submission (con envío por WhatsApp)
     document.getElementById('admin-reply-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const textInput = document.getElementById('admin-reply-text');
@@ -778,13 +899,25 @@
         const res = await fetch(`/api/admin/tickets/${selectedTicket.id}/comments`, {
           method: 'POST',
           headers: getAdminHeaders(),
-          body: JSON.stringify({ message, adminName: 'Soporte Administrativo' })
+          body: JSON.stringify({ message, adminName: 'Departamento de Sistemas' })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error al enviar');
 
+        // Check if WhatsApp auto-send is requested and valid phone exists
+        const phone = (selectedTicket.requester?.phone || '').trim();
+        const cleanPhone = phone.replace(/\D/g, '');
+        const sendWhatsApp = document.getElementById('send-whatsapp-check').checked;
+
+        if (sendWhatsApp && cleanPhone.length >= 8) {
+          const trackingUrl = `${window.location.origin}/ticket/${selectedTicket.id}`;
+          const waMessage = `¡Hola *${selectedTicket.requester.name}*! 👋 Te escribimos del *Departamento de Sistemas* respecto a tu reporte *${selectedTicket.id}* ("${selectedTicket.title}").\n\n💬 *Respuesta de Sistemas:* \n${message}\n\n🔗 Puedes consultar el avance o responder en línea aquí:\n${trackingUrl}`;
+          const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMessage)}`;
+          window.open(waUrl, '_blank');
+        }
+
         textInput.value = '';
-        showToast('Respuesta enviada al solicitante', 'success');
+        showToast('Respuesta registrada y enviada al solicitante', 'success');
         openTicketModal(selectedTicket.id);
         loadDashboardData();
       } catch (err) {
@@ -948,12 +1081,169 @@
       }
     });
 
-    // Auto-refresh Kanban every 20 seconds
+    // ==========================================
+    // NOTIFICACIÓN SONORA DE NUEVOS TICKETS
+    // ==========================================
+    let soundEnabled = true;
+    let knownTicketIds = new Set();
+    let isFirstLoad = true;
+
+    function playNotificationSound() {
+      if (!soundEnabled) return;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const now = ctx.currentTime;
+
+        // Campana armoniosa tri-tono: D5 (587Hz) -> F#5 (739Hz) -> A5 (880Hz)
+        const notes = [587.33, 739.99, 880.00];
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const startTime = now + (idx * 0.14);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, startTime);
+          gain.gain.setValueAtTime(0.25, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(startTime);
+          osc.stop(startTime + 0.4);
+        });
+      } catch (err) {
+        console.warn('Audio no disponible:', err);
+      }
+    }
+
+    const btnSoundToggle = document.getElementById('btn-sound-toggle');
+    btnSoundToggle.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      btnSoundToggle.textContent = soundEnabled ? '🔔 Sonido: ON' : '🔕 Sonido: OFF';
+      btnSoundToggle.classList.toggle('btn-secondary', soundEnabled);
+      btnSoundToggle.classList.toggle('btn-danger', !soundEnabled);
+      if (soundEnabled) {
+        playNotificationSound();
+        showToast('Sonido de alerta activado', 'info');
+      } else {
+        showToast('Sonido silenciado', 'info');
+      }
+    });
+
+    // ==========================================
+    // REPORTE MENSUAL & TICKETS REPETIDOS
+    // ==========================================
+    const monthlyModal = document.getElementById('monthly-modal');
+    const btnOpenMonthly = document.getElementById('btn-open-monthly');
+    const btnCloseMonthly = document.getElementById('btn-close-monthly');
+    const monthlyPicker = document.getElementById('monthly-picker');
+    const btnReloadMonthly = document.getElementById('btn-reload-monthly');
+    const btnDownloadMonthlyCsv = document.getElementById('btn-download-monthly-csv');
+
+    function getCurrentMonthString() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    btnOpenMonthly.addEventListener('click', () => {
+      if (!monthlyPicker.value) {
+        monthlyPicker.value = getCurrentMonthString();
+      }
+      loadMonthlyReport(monthlyPicker.value);
+      monthlyModal.showModal();
+    });
+
+    btnCloseMonthly.addEventListener('click', () => monthlyModal.close());
+    btnReloadMonthly.addEventListener('click', () => loadMonthlyReport(monthlyPicker.value));
+    monthlyPicker.addEventListener('change', () => loadMonthlyReport(monthlyPicker.value));
+
+    btnDownloadMonthlyCsv.addEventListener('click', () => {
+      const ym = monthlyPicker.value || getCurrentMonthString();
+      window.open(`/api/admin/export?month=${ym}`, '_blank');
+    });
+
+    async function loadMonthlyReport(ym) {
+      try {
+        const res = await fetch(`/api/admin/monthly-report?month=${ym}`, { headers: getAdminHeaders() });
+        if (!res.ok) throw new Error('Error al cargar reporte mensual');
+        const data = await res.json();
+
+        document.getElementById('monthly-stat-total').textContent = data.totalMonth;
+        document.getElementById('monthly-stat-resueltos').textContent = data.resueltos;
+        document.getElementById('monthly-stat-pendientes').textContent = data.pendientes;
+
+        // Render incidencias repetidas
+        const repCount = data.repeatedIssues.length;
+        document.getElementById('repeated-count-badge').textContent = `${repCount} incidencias repetidas`;
+        const repContainer = document.getElementById('monthly-repeated-container');
+
+        if (repCount === 0) {
+          repContainer.innerHTML = '<div style="padding: 1.5rem; text-align: center; color: var(--gray-500); font-size: 0.9rem;">✅ No se detectaron incidencias repetidas con el mismo asunto en este mes.</div>';
+        } else {
+          repContainer.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+              <thead style="background: #fef2f2; border-bottom: 1px solid var(--gray-200); text-align: left;">
+                <tr>
+                  <th style="padding: 0.6rem 0.8rem; color: #991b1b;">Problema / Asunto Repetido</th>
+                  <th style="padding: 0.6rem 0.8rem; color: #991b1b;">Categoría</th>
+                  <th style="padding: 0.6rem 0.8rem; color: #991b1b;">Frecuencia</th>
+                  <th style="padding: 0.6rem 0.8rem; color: #991b1b;">Tickets Involucrados</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.repeatedIssues.map(item => `
+                  <tr style="border-bottom: 1px solid var(--gray-100);">
+                    <td style="padding: 0.6rem 0.8rem; font-weight: 600; color: var(--gray-800);">${item.issue}</td>
+                    <td style="padding: 0.6rem 0.8rem;"><span class="badge" style="background: var(--gray-100);">${item.category}</span></td>
+                    <td style="padding: 0.6rem 0.8rem;"><strong style="color: #dc2626; font-size: 1rem;">${item.count} veces</strong></td>
+                    <td style="padding: 0.6rem 0.8rem;">
+                      ${item.ticketIds.map(id => `<a href="/ticket/${id}" target="_blank" style="font-size: 0.78rem; background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; text-decoration: none; margin-right: 4px; display: inline-block;">${id}</a>`).join('')}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+
+        // Render Solicitantes frecuentes
+        const reqContainer = document.getElementById('monthly-requesters-list');
+        if (data.byRequester.length === 0) {
+          reqContainer.innerHTML = '<div style="color: var(--gray-400); font-size: 0.85rem;">Sin registros este mes.</div>';
+        } else {
+          reqContainer.innerHTML = data.byRequester.slice(0, 10).map(r => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid var(--gray-200); font-size: 0.85rem;">
+              <span>👤 <strong>${r.name}</strong></span>
+              <span class="badge" style="background: #e2e8f0; font-weight: 700;">${r.count} tickets</span>
+            </div>
+          `).join('');
+        }
+
+        // Render Categorías
+        const catContainer = document.getElementById('monthly-categories-list');
+        const catEntries = Object.entries(data.byCategory);
+        if (catEntries.length === 0) {
+          catContainer.innerHTML = '<div style="color: var(--gray-400); font-size: 0.85rem;">Sin registros este mes.</div>';
+        } else {
+          catContainer.innerHTML = catEntries.map(([cat, count]) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid var(--gray-200); font-size: 0.85rem;">
+              <span>📁 ${cat}</span>
+              <span class="badge" style="background: #dbeafe; color: #1d4ed8; font-weight: 700;">${count}</span>
+            </div>
+          `).join('');
+        }
+
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Auto-refresh Kanban every 10 seconds con verificación sonora de nuevos tickets
     setInterval(() => {
-      if (adminPin && !ticketModal.open) {
+      if (adminPin && !ticketModal.open && !monthlyModal.open) {
         loadDashboardData();
       }
-    }, 20000);
+    }, 10000);
   </script>
 </body>
 </html>

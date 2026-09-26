@@ -36,10 +36,10 @@ app.get('/api/config', (req, res) => {
 });
 
 // Create new ticket (Public form)
-app.post('/api/tickets', (req, res) => {
+app.post('/api/tickets', async (req, res) => {
   try {
     const { title, description, category, priority, requester } = req.body;
-    const ticket = db.createTicket({ title, description, category, priority, requester });
+    const ticket = await db.createTicket({ title, description, category, priority, requester });
 
     // Asynchronously send confirmation email if email was provided
     mailer.sendTicketCreatedEmail(ticket, req).catch(err => {
@@ -62,8 +62,8 @@ app.post('/api/tickets', (req, res) => {
 });
 
 // View ticket for tracking (Public - hides internal admin notes)
-app.get('/api/tickets/:id', (req, res) => {
-  const ticket = db.getTicketById(req.params.id);
+app.get('/api/tickets/:id', async (req, res) => {
+  const ticket = await db.getTicketById(req.params.id);
   if (!ticket) {
     return res.status(404).json({ error: 'Ticket no encontrado. Verifica el código ingresado.' });
   }
@@ -87,10 +87,10 @@ app.get('/api/tickets/:id', (req, res) => {
 });
 
 // User adds comment to ticket (Public)
-app.post('/api/tickets/:id/comments', (req, res) => {
+app.post('/api/tickets/:id/comments', async (req, res) => {
   try {
     const { message, authorName } = req.body;
-    const ticket = db.addComment(req.params.id, {
+    const ticket = await db.addComment(req.params.id, {
       author: 'solicitante',
       authorName,
       message
@@ -126,22 +126,22 @@ app.post('/api/admin/change-pin', requireAdmin, (req, res) => {
 });
 
 // Daily statistics
-app.get('/api/admin/stats', requireAdmin, (req, res) => {
+app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   const date = req.query.date; // YYYY-MM-DD
-  const stats = db.getDailyStats(date);
+  const stats = await db.getDailyStats(date);
   res.json(stats);
 });
 
 // Get tickets with date & status filters (Agenda Diaria & Kanban)
-app.get('/api/admin/tickets', requireAdmin, (req, res) => {
-  const { date, status, search } = req.query;
-  const tickets = db.getTickets({ date, status, search });
+app.get('/api/admin/tickets', requireAdmin, async (req, res) => {
+  const { date, status, search, month } = req.query;
+  const tickets = await db.getTickets({ date, status, search, month });
   res.json(tickets);
 });
 
 // Get complete ticket details (including internal notes)
-app.get('/api/admin/tickets/:id', requireAdmin, (req, res) => {
-  const ticket = db.getTicketById(req.params.id);
+app.get('/api/admin/tickets/:id', requireAdmin, async (req, res) => {
+  const ticket = await db.getTicketById(req.params.id);
   if (!ticket) {
     return res.status(404).json({ error: 'Ticket no encontrado.' });
   }
@@ -152,10 +152,10 @@ app.get('/api/admin/tickets/:id', requireAdmin, (req, res) => {
 app.patch('/api/admin/tickets/:id/status', requireAdmin, async (req, res) => {
   try {
     const { status, comment, adminName } = req.body;
-    const oldTicket = db.getTicketById(req.params.id);
+    const oldTicket = await db.getTicketById(req.params.id);
     const oldStatus = oldTicket ? oldTicket.status : '';
 
-    const ticket = db.updateTicketStatus(req.params.id, status, comment, adminName || 'Departamento de Sistemas');
+    const ticket = await db.updateTicketStatus(req.params.id, status, comment, adminName || 'Departamento de Sistemas');
 
     // Notify requester via email of status change
     mailer.sendStatusChangeEmail(ticket, oldStatus, status, comment, adminName || 'Departamento de Sistemas', req).catch(err => {
@@ -172,7 +172,7 @@ app.patch('/api/admin/tickets/:id/status', requireAdmin, async (req, res) => {
 app.post('/api/admin/tickets/:id/comments', requireAdmin, async (req, res) => {
   try {
     const { message, adminName } = req.body;
-    const ticket = db.addComment(req.params.id, {
+    const ticket = await db.addComment(req.params.id, {
       author: 'admin',
       authorName: adminName || 'Departamento de Sistemas',
       message
@@ -190,13 +190,24 @@ app.post('/api/admin/tickets/:id/comments', requireAdmin, async (req, res) => {
 });
 
 // Admin adds internal private note
-app.post('/api/admin/tickets/:id/notes', requireAdmin, (req, res) => {
+app.post('/api/admin/tickets/:id/notes', requireAdmin, async (req, res) => {
   try {
     const { note, adminName } = req.body;
-    const ticket = db.addInternalNote(req.params.id, note, adminName || 'Departamento de Sistemas');
+    const ticket = await db.addInternalNote(req.params.id, note, adminName || 'Departamento de Sistemas');
     res.json({ success: true, ticket });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// Monthly report with duplicate issues detection
+app.get('/api/admin/monthly-report', requireAdmin, async (req, res) => {
+  try {
+    const { month } = req.query; // YYYY-MM
+    const report = await db.getMonthlyReport(month);
+    res.json(report);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -266,9 +277,9 @@ app.post('/api/admin/smtp/test', requireAdmin, async (req, res) => {
 });
 
 // Export reports as CSV
-app.get('/api/admin/export', requireAdmin, (req, res) => {
-  const { date, status } = req.query;
-  const tickets = db.getTickets({ date, status });
+app.get('/api/admin/export', requireAdmin, async (req, res) => {
+  const { date, status, month } = req.query;
+  const tickets = await db.getTickets({ date, status, month });
 
   const headers = ['ID', 'Fecha Creacion', 'Titulo', 'Categoria', 'Prioridad', 'Estado', 'Solicitante', 'Email', 'Telefono', 'Fecha Cierre'];
   const rows = tickets.map(t => [
@@ -285,7 +296,7 @@ app.get('/api/admin/export', requireAdmin, (req, res) => {
   ]);
 
   const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-  const filename = `reporte_tickets_${date || 'completo'}.csv`;
+  const filename = `reporte_tickets_${month || date || 'completo'}.csv`;
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
