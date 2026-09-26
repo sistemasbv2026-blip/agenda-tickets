@@ -374,7 +374,7 @@
             </div>
             <div class="form-group">
               <label for="smtp-user">Correo Remitente <span class="req">*</span></label>
-              <input type="email" id="smtp-user" class="form-input" value="jwexecutiveoffice@gmail.com" placeholder="jwexecutiveoffice@gmail.com" required>
+              <input type="email" id="smtp-user" class="form-input" value="soporte.it@buenaventuraresort.com" placeholder="soporte.it@buenaventuraresort.com" required>
             </div>
             <div class="form-group">
               <label for="smtp-pass">Contraseña o Clave de App <span class="req">*</span></label>
@@ -1142,7 +1142,7 @@
         const data = await res.json();
         document.getElementById('smtp-host').value = data.host || 'smtp.gmail.com';
         document.getElementById('smtp-port').value = data.port || 465;
-        document.getElementById('smtp-user').value = data.user || 'jwexecutiveoffice@gmail.com';
+        document.getElementById('smtp-user').value = data.user || 'soporte.it@buenaventuraresort.com';
         document.getElementById('smtp-from-name').value = data.fromName || 'Departamento de Sistemas';
         document.getElementById('smtp-base-url').value = data.publicBaseUrl || window.location.origin;
         document.getElementById('smtp-alert-emails').value = data.alertEmails || 'soporte.it@buenaventuraresort.com';

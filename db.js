@@ -18,9 +18,9 @@ const DEFAULT_CONFIG = {
   smtp: {
     host: 'smtp.gmail.com',
     port: 465,
-    user: 'jwexecutiveoffice@gmail.com',
+    user: 'soporte.it@buenaventuraresort.com',
     fromName: 'Departamento de Sistemas',
-    fromEmail: 'jwexecutiveoffice@gmail.com',
+    fromEmail: 'soporte.it@buenaventuraresort.com',
     alertEmails: 'soporte.it@buenaventuraresort.com'
   },
   publicBaseUrl: 'https://agenda-tickets.onrender.com'
