@@ -224,12 +224,14 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
+const HOST = '0.0.0.0';
+
+app.listen(PORT, HOST, () => {
   console.log(`=======================================================`);
   console.log(`🚀 Sistema de Agenda Diaria y Tickets activo`);
-  console.log(`🔗 Portal Público (Crear Ticket): http://localhost:${PORT}`);
-  console.log(`🔍 Seguimiento de Tickets:       http://localhost:${PORT}/seguimiento`);
-  console.log(`📅 Panel Admin (Agenda Diaria):  http://localhost:${PORT}/admin`);
-  console.log(`🔑 PIN de Administrador inicial: 1234`);
+  console.log(`🌍 Escuchando en todas las redes: http://${HOST}:${PORT}`);
+  console.log(`🔗 Portal Público: /`);
+  console.log(`🔍 Seguimiento:   /seguimiento`);
+  console.log(`📅 Panel Admin:   /admin`);
   console.log(`=======================================================`);
 });
