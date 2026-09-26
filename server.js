@@ -242,15 +242,24 @@ app.post('/api/admin/smtp', requireAdmin, (req, res) => {
   }
 });
 
-// Test SMTP Configuration
+// Test SMTP Configuration (con límite de 8 segundos para evitar cuelgues)
 app.post('/api/admin/smtp/test', requireAdmin, async (req, res) => {
   try {
     const { testEmail } = req.body;
     if (!testEmail || !testEmail.includes('@')) {
       return res.status(400).json({ error: 'Ingresa un correo electrónico válido para la prueba.' });
     }
-    await mailer.sendTestEmail(testEmail.trim());
-    res.json({ success: true, message: `Correo de prueba enviado exitosamente a ${testEmail}.` });
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Tiempo de espera agotado al conectar con el servidor SMTP (revisa servidor, puerto o credenciales).')), 8000)
+    );
+
+    await Promise.race([
+      mailer.sendTestEmail(testEmail.trim()),
+      timeoutPromise
+    ]);
+
+    res.json({ success: true, message: `¡Correo de prueba enviado exitosamente a ${testEmail}!` });
   } catch (err) {
     res.status(400).json({ error: 'Fallo al enviar correo: ' + err.message });
   }

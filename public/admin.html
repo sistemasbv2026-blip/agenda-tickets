@@ -909,7 +909,7 @@
       }
     });
 
-    // Test SMTP Email
+    // Test SMTP Email con timeout de seguridad
     document.getElementById('btn-send-test-email').addEventListener('click', async () => {
       const testEmail = document.getElementById('test-email-input').value.trim();
       const btn = document.getElementById('btn-send-test-email');
@@ -921,17 +921,27 @@
       btn.disabled = true;
       btn.textContent = 'Enviando...';
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 9000);
+
       try {
         const res = await fetch('/api/admin/smtp/test', {
           method: 'POST',
           headers: getAdminHeaders(),
-          body: JSON.stringify({ testEmail })
+          body: JSON.stringify({ testEmail }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Fallo de envío');
         showToast(data.message, 'success');
       } catch (err) {
-        showToast(err.message, 'error');
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          showToast('Tiempo de espera agotado: El servidor de correo no responde. Verifica el servidor y puerto.', 'error');
+        } else {
+          showToast(err.message, 'error');
+        }
       } finally {
         btn.disabled = false;
         btn.textContent = 'Enviar Prueba';
