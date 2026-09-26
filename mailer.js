@@ -15,6 +15,20 @@ function getTransporter() {
     return null; // Not configured yet
   }
 
+  // Detección automática optimizada para Gmail
+  if ((host && host.includes('gmail')) || (user && user.toLowerCase().endsWith('@gmail.com'))) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: user.trim(),
+        pass: pass.trim().replace(/\s+/g, '') // Eliminar espacios si copiaron la clave de 16 letras con espacios
+      },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000
+    });
+  }
+
   return nodemailer.createTransport({
     host,
     port,
