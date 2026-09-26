@@ -19,9 +19,13 @@ function getTransporter() {
     host,
     port,
     secure,
+    requireTLS: port === 587,
     auth: { user, pass },
+    connectionTimeout: 12000, // 12 segundos máximo de espera
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
     tls: {
-      rejectUnauthorized: false // Allow corporate self-signed / TLS negotiation
+      rejectUnauthorized: false
     }
   });
 }
