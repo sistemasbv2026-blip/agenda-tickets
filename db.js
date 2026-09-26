@@ -56,6 +56,20 @@ if (databaseUrl) {
       `);
       console.log('✅ Tablas de PostgreSQL verificadas y listas.');
 
+      // Sincronizar y cargar configuración persistente desde PostgreSQL
+      const cfgRow = await pgPool.query("SELECT value FROM config WHERE key = 'app_config'");
+      if (cfgRow.rows.length > 0 && cfgRow.rows[0].value) {
+        memoryConfig = { ...DEFAULT_CONFIG, ...cfgRow.rows[0].value };
+        writeJsonFile(CONFIG_FILE, memoryConfig);
+        console.log('⚙️ Configuración cargada desde PostgreSQL.');
+      } else {
+        const initialCfg = getConfig();
+        await pgPool.query(
+          "INSERT INTO config (key, value) VALUES ('app_config', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
+          [JSON.stringify(initialCfg)]
+        );
+      }
+
       // Check if DB is empty and migrate from JSON
       const res = await pgPool.query('SELECT COUNT(*) FROM tickets');
       if (parseInt(res.rows[0].count) === 0 && fs.existsSync(TICKETS_FILE)) {
@@ -75,6 +89,8 @@ if (databaseUrl) {
     }
   })();
 }
+
+let memoryConfig = null;
 
 function readJsonFile(filePath, defaultValue) {
   try {
@@ -101,14 +117,23 @@ function writeJsonFile(filePath, data) {
 }
 
 function getConfig() {
-  return readJsonFile(CONFIG_FILE, DEFAULT_CONFIG);
+  if (!memoryConfig) {
+    memoryConfig = readJsonFile(CONFIG_FILE, DEFAULT_CONFIG);
+  }
+  return memoryConfig;
 }
 
 function updateConfig(newValues) {
   const current = getConfig();
-  const updated = { ...current, ...newValues };
-  writeJsonFile(CONFIG_FILE, updated);
-  return updated;
+  memoryConfig = { ...current, ...newValues };
+  writeJsonFile(CONFIG_FILE, memoryConfig);
+  if (pgPool) {
+    pgPool.query(
+      "INSERT INTO config (key, value) VALUES ('app_config', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
+      [JSON.stringify(memoryConfig)]
+    ).catch(err => console.error('Error sincronizando config con PostgreSQL:', err.message));
+  }
+  return memoryConfig;
 }
 
 function getAllTicketsLocal() {

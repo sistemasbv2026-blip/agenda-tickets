@@ -43,9 +43,14 @@ app.post('/api/tickets', async (req, res) => {
     const { title, description, category, priority, requester } = req.body;
     const ticket = await db.createTicket({ title, description, category, priority, requester });
 
-    // Asynchronously send confirmation email if email was provided
+    // Asynchronously send confirmation email if requester email was provided
     mailer.sendTicketCreatedEmail(ticket, req).catch(err => {
-      console.warn('No se pudo enviar confirmación por correo:', err.message);
+      console.warn('No se pudo enviar confirmación por correo al solicitante:', err.message);
+    });
+
+    // Asynchronously send alert notification to the 3 IT Department members
+    mailer.sendNewTicketAlertToAdmin(ticket, req).catch(err => {
+      console.warn('No se pudo enviar alerta de nuevo ticket al equipo de sistemas:', err.message);
     });
 
     res.status(201).json({
@@ -224,14 +229,15 @@ app.get('/api/admin/smtp', requireAdmin, (req, res) => {
     fromName: smtp.fromName || process.env.SMTP_FROM_NAME || 'Departamento de Sistemas',
     fromEmail: smtp.fromEmail || process.env.SMTP_FROM_EMAIL || '',
     hasPass: !!(smtp.pass || process.env.SMTP_PASS),
-    publicBaseUrl: config.publicBaseUrl || process.env.PUBLIC_BASE_URL || ''
+    publicBaseUrl: config.publicBaseUrl || process.env.PUBLIC_BASE_URL || '',
+    alertEmails: smtp.alertEmails || process.env.ADMIN_ALERT_EMAILS || ''
   });
 });
 
 // Update SMTP Configuration
 app.post('/api/admin/smtp', requireAdmin, (req, res) => {
   try {
-    const { host, port, user, pass, fromName, fromEmail, publicBaseUrl } = req.body;
+    const { host, port, user, pass, fromName, fromEmail, publicBaseUrl, alertEmails } = req.body;
     const current = db.getConfig();
     const existingSmtp = current.smtp || {};
 
@@ -241,7 +247,8 @@ app.post('/api/admin/smtp', requireAdmin, (req, res) => {
       user: (user || '').trim(),
       pass: pass ? pass.trim() : existingSmtp.pass || '',
       fromName: (fromName || 'Departamento de Sistemas').trim(),
-      fromEmail: (fromEmail || user || '').trim()
+      fromEmail: (fromEmail || user || '').trim(),
+      alertEmails: (alertEmails || '').trim()
     };
 
     db.updateConfig({
@@ -249,7 +256,7 @@ app.post('/api/admin/smtp', requireAdmin, (req, res) => {
       publicBaseUrl: (publicBaseUrl || '').trim()
     });
 
-    res.json({ success: true, message: 'Configuración de correo guardada exitosamente.' });
+    res.json({ success: true, message: 'Configuración de correo y alertas guardada exitosamente.' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

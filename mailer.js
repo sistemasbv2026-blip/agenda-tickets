@@ -270,6 +270,84 @@ const mailer = {
     } catch (err) {
       console.error('Error enviando confirmación de creación:', err);
     }
+  },
+
+  // Alert email sent to the 3 IT Department members when a new ticket is submitted
+  async sendNewTicketAlertToAdmin(ticket, req = null) {
+    const config = db.getConfig();
+    const alertEmailsStr = (config.smtp?.alertEmails || process.env.ADMIN_ALERT_EMAILS || '').trim();
+    if (!alertEmailsStr) {
+      return { skipped: true, reason: 'Sin correos de alerta configurados para el equipo de sistemas' };
+    }
+
+    const emails = alertEmailsStr.split(/[,;\s]+/).map(e => e.trim()).filter(e => e.includes('@'));
+    if (emails.length === 0) {
+      return { skipped: true, reason: 'No hay correos de alerta válidos' };
+    }
+
+    const transporter = getTransporter();
+    if (!transporter) {
+      return { skipped: true, reason: 'SMTP no configurado' };
+    }
+
+    const baseUrl = getBaseUrl(req);
+    const adminUrl = `${baseUrl}/admin`;
+    const cleanPhone = (ticket.requester?.phone || '').replace(/\D/g, '');
+    const waLink = cleanPhone.length >= 8 ? `https://wa.me/${cleanPhone.length === 8 ? '507' + cleanPhone : cleanPhone}` : null;
+    const priorityEmoji = ticket.priority === 'alta' ? '🔴 ALTA' : (ticket.priority === 'media' ? '🟡 MEDIA' : '🟢 BAJA');
+
+    const htmlContent = `
+      <div style="font-family: Arial, -apple-system, BlinkMacSystemFont, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.04);">
+        <div style="background: #0f172a; color: white; padding: 22px 24px; text-align: center;">
+          <span style="background: #dc2626; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase;">Aviso Inmediato a Sistemas</span>
+          <h2 style="margin: 10px 0 4px 0; font-size: 20px; font-weight: 800;">🚨 Nuevo Ticket Recibido</h2>
+          <p style="margin: 0; font-size: 13px; opacity: 0.85;">Código: <strong>${ticket.id}</strong> &bull; Prioridad: <strong>${priorityEmoji}</strong></p>
+        </div>
+        <div style="padding: 24px; color: #1e293b; font-size: 14px; line-height: 1.6;">
+          <p style="font-size: 16px; margin: 0 0 16px 0; color: #0f172a;">
+            <strong>Asunto:</strong> ${ticket.title}
+          </p>
+
+          <div style="background: #f8fafc; border-left: 4px solid #2563eb; padding: 14px 18px; border-radius: 6px; margin-bottom: 20px;">
+            <p style="margin: 0 0 8px 0;">👤 <strong>Solicitante:</strong> ${ticket.requester.name}</p>
+            <p style="margin: 0 0 8px 0;">✉️ <strong>Correo:</strong> <a href="mailto:${ticket.requester.email}" style="color: #2563eb;">${ticket.requester.email || 'No proporcionado'}</a></p>
+            <p style="margin: 0 0 8px 0;">📞 <strong>WhatsApp / Tel:</strong> ${ticket.requester.phone ? `<a href="${waLink || '#'}" target="_blank" style="color: #16a34a; font-weight: bold;">${ticket.requester.phone} 📲</a>` : 'No proporcionado'}</p>
+            <p style="margin: 0;">📁 <strong>Categoría:</strong> ${ticket.category}</p>
+          </div>
+
+          <p style="margin: 0 0 6px 0; font-weight: bold; color: #334155;">Descripción del Reporte:</p>
+          <div style="background: #f1f5f9; padding: 14px; border-radius: 8px; color: #334155; font-style: italic; white-space: pre-wrap; font-size: 13.5px; margin-bottom: 24px;">"${ticket.description}"</div>
+
+          <div style="text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center;">
+            <a href="${adminUrl}" style="background-color: #2563eb; color: #ffffff !important; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 14px; display: inline-block; width: 80%; max-width: 280px;">
+              🛡️ Abrir en Panel de Sistemas
+            </a>
+            ${waLink ? `
+              <a href="${waLink}" target="_blank" style="background-color: #22c55e; color: #ffffff !important; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-weight: bold; font-size: 14px; display: inline-block; width: 80%; max-width: 280px;">
+                💬 Abrir WhatsApp con Solicitante
+              </a>
+            ` : ''}
+          </div>
+        </div>
+        <div style="background: #f8fafc; padding: 14px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0;">
+          Notificación automática enviada a los 3 integrantes de Sistemas &bull; Agenda de Tickets
+        </div>
+      </div>
+    `;
+
+    try {
+      await transporter.sendMail({
+        from: getSender(),
+        to: emails,
+        subject: `🚨 [NUEVO TICKET ${ticket.id}] (${priorityEmoji}): ${ticket.title} - ${ticket.requester.name}`,
+        html: htmlContent
+      });
+      console.log(`✉️ Alerta de nuevo ticket enviada a integrantes de Sistemas: ${emails.join(', ')}`);
+      return { success: true };
+    } catch (err) {
+      console.error('Error enviando alerta de nuevo ticket a Sistemas:', err.message);
+      return { success: false, error: err.message };
+    }
   }
 };
 

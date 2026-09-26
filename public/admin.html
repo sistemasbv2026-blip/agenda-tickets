@@ -4,7 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel de Administración y Agenda Diaria - Kanban de Tickets</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     /* Admin specific styles */
     .admin-locked {
@@ -60,6 +67,7 @@
     </a>
     <nav class="main-nav">
       <button type="button" id="btn-sound-toggle" class="btn btn-secondary btn-sm" title="Activar o silenciar sonido cuando entran nuevos tickets">🔔 Sonido: ON</button>
+      <button type="button" id="btn-notif-toggle" class="btn btn-secondary btn-sm" title="Activar alertas emergentes en pantalla / celular">📲 Notificaciones</button>
       <button type="button" id="btn-open-monthly" class="btn btn-primary btn-sm">📊 Reporte Mensual</button>
       <a href="/" target="_blank" class="nav-link">↗ Portal Público</a>
       <button type="button" id="btn-settings" class="btn btn-secondary btn-sm">⚙️ Ajustes</button>
@@ -102,10 +110,13 @@
         <input type="date" id="filter-date" class="form-input" style="padding: 0.35rem 0.65rem; width: auto; font-size: 0.88rem;">
       </div>
 
-      <div style="display: flex; gap: 0.75rem; align-items: center; flex: 1; max-width: 450px; justify-content: flex-end;">
+      <div style="display: flex; gap: 0.5rem; align-items: center; flex: 1; max-width: 520px; justify-content: flex-end;">
         <input type="text" id="filter-search" class="form-input" placeholder="🔍 Buscar por código, asunto o solicitante..." style="font-size: 0.88rem;">
         <button id="btn-export-csv" class="btn btn-secondary btn-sm" title="Descargar CSV">
           📥 CSV
+        </button>
+        <button id="btn-export-daily-pdf" class="btn btn-secondary btn-sm" title="Descargar Agenda del Día en PDF" style="font-weight: 600;">
+          📄 PDF
         </button>
         <button id="btn-reload-admin" class="btn btn-secondary btn-sm" title="Recargar">
           🔄
@@ -373,6 +384,13 @@
               <label for="smtp-base-url">Enlace Web Público (URL)</label>
               <input type="url" id="smtp-base-url" class="form-input" placeholder="https://tu-app.onrender.com">
             </div>
+            <div class="form-group" style="grid-column: span 2;">
+              <label for="smtp-alert-emails">🚨 Correos de Alerta para el Equipo de Sistemas (separados por coma)</label>
+              <input type="text" id="smtp-alert-emails" class="form-input" placeholder="tecnico1@empresa.com, tecnico2@empresa.com, jefe@empresa.com">
+              <span style="font-size: 0.78rem; color: var(--gray-500); display: block; margin-top: 3px;">
+                🔔 Cada vez que un usuario cree un ticket nuevo, el sistema enviará un aviso inmediato a estos correos para que les suene en el celular a los 3 técnicos aunque no estén frente a la computadora.
+              </span>
+            </div>
           </div>
 
           <div style="margin-top: 1rem;">
@@ -408,9 +426,17 @@
           <input type="month" id="monthly-picker" class="form-input" style="width: auto; padding: 0.4rem 0.75rem;">
           <button type="button" id="btn-reload-monthly" class="btn btn-secondary btn-sm">🔄</button>
         </div>
-        <button type="button" id="btn-download-monthly-csv" class="btn btn-primary btn-sm">
-          📥 Descargar Todos los Tickets del Mes (CSV/Excel)
-        </button>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button type="button" id="btn-download-monthly-pdf" class="btn btn-sm" style="background: #dc2626; color: white; display: flex; align-items: center; gap: 0.35rem; font-weight: 700;">
+            📄 Descargar Reporte en PDF
+          </button>
+          <button type="button" id="btn-print-monthly-pdf" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; gap: 0.35rem;">
+            🖨️ Imprimir / Vista Previa
+          </button>
+          <button type="button" id="btn-download-monthly-csv" class="btn btn-secondary btn-sm">
+            📥 CSV / Excel
+          </button>
+        </div>
       </div>
 
       <!-- Resumen del Mes -->
@@ -628,6 +654,12 @@
       downloadReportFile(url, `reporte_tickets_${selectedDate || 'completo'}.csv`);
     });
 
+    // Export PDF Agenda Diaria
+    const btnExportDailyPdf = document.getElementById('btn-export-daily-pdf');
+    if (btnExportDailyPdf) {
+      btnExportDailyPdf.addEventListener('click', downloadDailyAgendaPdf);
+    }
+
     // Fetch and render data
     async function loadDashboardData() {
       try {
@@ -644,12 +676,12 @@
         const newTickets = await ticketsRes.json();
         const stats = await statsRes.json();
 
-        // Detección sonora de nuevos tickets entrantes
+        // Detección sonora y visual de nuevos tickets entrantes
         const newIds = newTickets.map(t => t.id);
         if (!isFirstLoad) {
           const freshArrivals = newTickets.filter(t => !knownTicketIds.has(t.id));
           if (freshArrivals.length > 0) {
-            playNotificationSound();
+            triggerArrivalAlerts(freshArrivals);
             showToast(`🔔 ¡${freshArrivals.length} nuevo(s) reporte(s) recibido(s) en la agenda!`, 'warning');
           }
         }
@@ -1046,6 +1078,7 @@
         document.getElementById('smtp-user').value = data.user || '';
         document.getElementById('smtp-from-name').value = data.fromName || 'Departamento de Sistemas';
         document.getElementById('smtp-base-url').value = data.publicBaseUrl || window.location.origin;
+        document.getElementById('smtp-alert-emails').value = data.alertEmails || '';
         if (data.hasPass) {
           document.getElementById('smtp-pass').placeholder = '•••••••• (Guardada - déjala vacía para conservar)';
         }
@@ -1067,7 +1100,8 @@
         user: document.getElementById('smtp-user').value,
         pass: document.getElementById('smtp-pass').value,
         fromName: document.getElementById('smtp-from-name').value,
-        publicBaseUrl: document.getElementById('smtp-base-url').value
+        publicBaseUrl: document.getElementById('smtp-base-url').value,
+        alertEmails: document.getElementById('smtp-alert-emails').value
       };
 
       try {
@@ -1129,11 +1163,65 @@
     });
 
     // ==========================================
-    // NOTIFICACIÓN SONORA DE NUEVOS TICKETS
+    // NOTIFICACIONES, PWA Y ALERTAS DE NUEVOS TICKETS
     // ==========================================
     let soundEnabled = true;
     let knownTicketIds = new Set();
     let isFirstLoad = true;
+    let currentMonthlyData = null;
+
+    // Registro de PWA (Service Worker)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(() => console.log('✅ PWA Service Worker registrado'))
+          .catch(err => console.log('SW no registrado:', err));
+      });
+    }
+
+    // Botón de Notificaciones Emergentes en Navegador/Móvil
+    const btnNotifToggle = document.getElementById('btn-notif-toggle');
+    function updateNotifButtonState() {
+      if (!btnNotifToggle) return;
+      if (!('Notification' in window)) {
+        btnNotifToggle.style.display = 'none';
+        return;
+      }
+      if (Notification.permission === 'granted') {
+        btnNotifToggle.textContent = '📲 Notif: ON';
+        btnNotifToggle.classList.remove('btn-secondary');
+        btnNotifToggle.classList.add('btn-primary');
+      } else {
+        btnNotifToggle.textContent = '📲 Notif: OFF';
+        btnNotifToggle.classList.add('btn-secondary');
+        btnNotifToggle.classList.remove('btn-primary');
+      }
+    }
+    updateNotifButtonState();
+
+    if (btnNotifToggle) {
+      btnNotifToggle.addEventListener('click', async () => {
+        if (!('Notification' in window)) {
+          showToast('Este navegador no soporta notificaciones emergentes', 'warning');
+          return;
+        }
+        if (Notification.permission === 'granted') {
+          showToast('Las notificaciones ya están activas en este dispositivo', 'info');
+          return;
+        }
+        const perm = await Notification.requestPermission();
+        updateNotifButtonState();
+        if (perm === 'granted') {
+          showToast('🔔 Notificaciones emergentes activadas exitosamente', 'success');
+          new Notification('🚨 Alertas de Sistemas Activas', {
+            body: 'Recibirás avisos en pantalla cada vez que un usuario cree un ticket.',
+            icon: '/icon.svg'
+          });
+        } else {
+          showToast('Permiso de notificaciones no concedido', 'warning');
+        }
+      });
+    }
 
     function playNotificationSound() {
       if (!soundEnabled) return;
@@ -1163,6 +1251,30 @@
       }
     }
 
+    function triggerArrivalAlerts(freshTickets) {
+      playNotificationSound();
+
+      // Vibración en celular (si el dispositivo lo soporta)
+      if ('vibrate' in navigator) {
+        navigator.vibrate([250, 100, 250]);
+      }
+
+      // Notificación emergente de escritorio / sistema
+      if ('Notification' in window && Notification.permission === 'granted' && freshTickets.length > 0) {
+        const first = freshTickets[0];
+        const extraText = freshTickets.length > 1 ? ` (+${freshTickets.length - 1} más)` : '';
+        const notif = new Notification(`🚨 Nuevo Ticket: ${first.title}${extraText}`, {
+          body: `👤 De: ${first.requester.name} (${first.category})\nPrioridad: ${first.priority.toUpperCase()}`,
+          icon: '/icon.svg',
+          tag: first.id
+        });
+        notif.onclick = () => {
+          window.focus();
+          openTicketModal(first.id);
+        };
+      }
+    }
+
     const btnSoundToggle = document.getElementById('btn-sound-toggle');
     btnSoundToggle.addEventListener('click', () => {
       soundEnabled = !soundEnabled;
@@ -1178,7 +1290,7 @@
     });
 
     // ==========================================
-    // REPORTE MENSUAL & TICKETS REPETIDOS
+    // REPORTE MENSUAL & EXPORTACIÓN A PDF Y CSV
     // ==========================================
     const monthlyModal = document.getElementById('monthly-modal');
     const btnOpenMonthly = document.getElementById('btn-open-monthly');
@@ -1186,6 +1298,8 @@
     const monthlyPicker = document.getElementById('monthly-picker');
     const btnReloadMonthly = document.getElementById('btn-reload-monthly');
     const btnDownloadMonthlyCsv = document.getElementById('btn-download-monthly-csv');
+    const btnDownloadMonthlyPdf = document.getElementById('btn-download-monthly-pdf');
+    const btnPrintMonthlyPdf = document.getElementById('btn-print-monthly-pdf');
 
     function getCurrentMonthString() {
       const d = new Date();
@@ -1210,11 +1324,19 @@
       downloadReportFile(url, `reporte_mensual_tickets_${ym}.csv`);
     });
 
+    if (btnDownloadMonthlyPdf) {
+      btnDownloadMonthlyPdf.addEventListener('click', downloadMonthlyReportPdf);
+    }
+    if (btnPrintMonthlyPdf) {
+      btnPrintMonthlyPdf.addEventListener('click', printMonthlyReport);
+    }
+
     async function loadMonthlyReport(ym) {
       try {
         const res = await fetch(`/api/admin/monthly-report?month=${ym}`, { headers: getAdminHeaders() });
         if (!res.ok) throw new Error('Error al cargar reporte mensual');
         const data = await res.json();
+        currentMonthlyData = data;
 
         document.getElementById('monthly-stat-total').textContent = data.totalMonth;
         document.getElementById('monthly-stat-resueltos').textContent = data.resueltos;
@@ -1283,6 +1405,313 @@
 
       } catch (err) {
         showToast(err.message, 'error');
+      }
+    }
+
+    // Constructor de Plantilla HTML para PDF Mensual
+    function buildMonthlyPdfHtml(data, ym) {
+      const effectiveness = data.totalMonth > 0 ? Math.round((data.resueltos / data.totalMonth) * 100) : 0;
+      const tickets = data.tickets || [];
+
+      return `
+        <div style="font-family: Arial, sans-serif; color: #0f172a; padding: 20px; background: #ffffff; line-height: 1.4;">
+          <!-- Membrete Ejecutivo -->
+          <div style="border-bottom: 3px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+              <div style="font-size: 11px; font-weight: bold; color: #2563eb; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px;">
+                Departamento de Tecnologías de la Información
+              </div>
+              <h1 style="font-size: 20px; font-weight: 800; margin: 0; color: #0f172a; text-transform: uppercase;">
+                Informe Mensual de Auditoría & Control de Tickets
+              </h1>
+              <p style="font-size: 12px; color: #64748b; margin: 4px 0 0 0;">
+                Sistema Centralizado de Soporte Técnico y Gestión de Incidencias
+              </p>
+            </div>
+            <div style="text-align: right; font-size: 11px; color: #475569;">
+              <div><strong>Período Auditado:</strong> ${ym}</div>
+              <div><strong>Fecha de Emisión:</strong> ${new Date().toLocaleDateString('es-ES')}</div>
+            </div>
+          </div>
+
+          <!-- Resumen de Métricas Clave -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px;">
+            <div style="border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 8px; padding: 12px; text-align: center;">
+              <div style="font-size: 24px; font-weight: 800; color: #0f172a;">${data.totalMonth}</div>
+              <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase;">Total de Tickets</div>
+            </div>
+            <div style="border: 1px solid #86efac; background: #f0fdf4; border-radius: 8px; padding: 12px; text-align: center;">
+              <div style="font-size: 24px; font-weight: 800; color: #15803d;">${data.resueltos} <span style="font-size: 13px; font-weight: 600;">(${effectiveness}%)</span></div>
+              <div style="font-size: 11px; font-weight: 700; color: #166534; text-transform: uppercase;">Resueltos / Cerrados</div>
+            </div>
+            <div style="border: 1px solid #fde68a; background: #fefce8; border-radius: 8px; padding: 12px; text-align: center;">
+              <div style="font-size: 24px; font-weight: 800; color: #b45309;">${data.pendientes}</div>
+              <div style="font-size: 11px; font-weight: 700; color: #92400e; text-transform: uppercase;">Pendientes / En Curso</div>
+            </div>
+          </div>
+
+          <!-- Incidencias Repetidas -->
+          <div style="margin-bottom: 20px;">
+            <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 8px 12px; margin-bottom: 8px; border-radius: 4px;">
+              <strong style="color: #991b1b; font-size: 13px;">⚠️ Incidencias Repetidas Detectadas en el Mes (${data.repeatedIssues.length})</strong>
+            </div>
+            ${data.repeatedIssues.length === 0 ? `
+              <div style="padding: 10px; font-size: 11.5px; color: #64748b; font-style: italic;">No se registraron problemas repetidos con el mismo asunto en este mes.</div>
+            ` : `
+              <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #cbd5e1;">
+                <thead>
+                  <tr style="background: #f1f5f9; text-align: left;">
+                    <th style="padding: 6px 8px; border: 1px solid #cbd5e1; width: 40%;">Problema / Falla Repetida</th>
+                    <th style="padding: 6px 8px; border: 1px solid #cbd5e1; width: 25%;">Categoría</th>
+                    <th style="padding: 6px 8px; border: 1px solid #cbd5e1; width: 15%; text-align: center;">Frecuencia</th>
+                    <th style="padding: 6px 8px; border: 1px solid #cbd5e1; width: 20%;">Tickets Afectados</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.repeatedIssues.map(r => `
+                    <tr>
+                      <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-weight: bold;">${r.issue}</td>
+                      <td style="padding: 6px 8px; border: 1px solid #e2e8f0;">${r.category}</td>
+                      <td style="padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; color: #dc2626; font-weight: bold;">${r.count} veces</td>
+                      <td style="padding: 6px 8px; border: 1px solid #e2e8f0; font-size: 10px;">${r.ticketIds.join(', ')}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `}
+          </div>
+
+          <!-- Dos Columnas: Categorías y Solicitantes -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px;">
+            <div>
+              <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px;">
+                📁 Distribución por Categorías
+              </div>
+              <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                ${Object.entries(data.byCategory).map(([cat, cnt]) => `
+                  <tr>
+                    <td style="padding: 4px 6px; border-bottom: 1px solid #e2e8f0;">${cat}</td>
+                    <td style="padding: 4px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${cnt}</td>
+                  </tr>
+                `).join('')}
+              </table>
+            </div>
+
+            <div>
+              <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px;">
+                👥 Top Solicitantes
+              </div>
+              <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                ${data.byRequester.slice(0, 7).map(r => `
+                  <tr>
+                    <td style="padding: 4px 6px; border-bottom: 1px solid #e2e8f0;">${r.name}</td>
+                    <td style="padding: 4px 6px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold;">${r.count} tickets</td>
+                  </tr>
+                `).join('')}
+              </table>
+            </div>
+          </div>
+
+          <!-- Listado Completo de Tickets -->
+          <div style="margin-bottom: 24px;">
+            <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px;">
+              📋 Relación Completa de Tickets del Mes (${tickets.length})
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #cbd5e1;">
+              <thead>
+                <tr style="background: #f1f5f9; text-align: left;">
+                  <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Código</th>
+                  <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Fecha</th>
+                  <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Asunto</th>
+                  <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Solicitante</th>
+                  <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Categoría</th>
+                  <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Prioridad</th>
+                  <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tickets.map(t => `
+                  <tr>
+                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: bold;">${t.id}</td>
+                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0;">${new Date(t.createdAt).toLocaleDateString('es-ES')}</td>
+                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0;">${t.title}</td>
+                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0;">${t.requester.name}</td>
+                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0;">${t.category}</td>
+                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0; text-transform: capitalize;">${t.priority}</td>
+                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0; font-weight: bold;">${t.status}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Firmas -->
+          <div style="margin-top: 36px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; text-align: center; font-size: 11px; color: #475569;">
+            <div>
+              <div style="border-top: 1px solid #0f172a; padding-top: 6px; width: 80%; margin: 0 auto;">
+                <strong>Elaborado por</strong><br>
+                Departamento de Sistemas & Tecnologías de la Información
+              </div>
+            </div>
+            <div>
+              <div style="border-top: 1px solid #0f172a; padding-top: 6px; width: 80%; margin: 0 auto;">
+                <strong>Vo.Bo. / Recibido</strong><br>
+                Gerencia / Auditoría
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Descarga de PDF Mensual con html2pdf.js
+    async function downloadMonthlyReportPdf() {
+      if (!currentMonthlyData) {
+        showToast('Carga primero el reporte mensual', 'warning');
+        return;
+      }
+      const ym = monthlyPicker.value || getCurrentMonthString();
+      const btn = document.getElementById('btn-download-monthly-pdf');
+      btn.disabled = true;
+      btn.textContent = '⏳ Generando PDF...';
+
+      try {
+        const tempContainer = document.createElement('div');
+        tempContainer.innerHTML = buildMonthlyPdfHtml(currentMonthlyData, ym);
+        document.body.appendChild(tempContainer);
+
+        const opt = {
+          margin: [8, 8, 8, 8],
+          filename: `Reporte_Mensual_Tickets_${ym}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        };
+
+        if (window.html2pdf) {
+          await html2pdf().set(opt).from(tempContainer.firstElementChild).save();
+          showToast('Reporte en PDF descargado exitosamente', 'success');
+        } else {
+          window.print();
+        }
+        document.body.removeChild(tempContainer);
+      } catch (err) {
+        console.error('Error generando PDF mensual:', err);
+        showToast('Error al generar PDF: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '📄 Descargar Reporte en PDF';
+      }
+    }
+
+    // Imprimir o Guardar como PDF Nativo
+    function printMonthlyReport() {
+      if (!currentMonthlyData) return;
+      const ym = monthlyPicker.value || getCurrentMonthString();
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Reporte Mensual Tickets ${ym}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 15px; }
+            @media print {
+              @page { size: A4 portrait; margin: 10mm; }
+            }
+          </style>
+        </head>
+        <body>
+          ${buildMonthlyPdfHtml(currentMonthlyData, ym)}
+          <script>
+            window.onload = function() { window.print(); }
+          <\/script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+
+    // Constructor de Plantilla HTML para Agenda Diaria en PDF
+    function buildDailyAgendaPdfHtml(tickets, dateStr) {
+      return `
+        <div style="font-family: Arial, sans-serif; color: #0f172a; padding: 20px; background: #ffffff;">
+          <div style="border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+              <h2 style="font-size: 18px; font-weight: 800; margin: 0; color: #0f172a;">AGENDA DIARIA DE TICKETS & SOPORTE IT</h2>
+              <p style="font-size: 12px; color: #64748b; margin: 3px 0 0 0;">Departamento de Sistemas &bull; Control Operativo</p>
+            </div>
+            <div style="text-align: right; font-size: 11px;">
+              <div><strong>Fecha de la Agenda:</strong> ${dateStr}</div>
+              <div><strong>Total Tickets:</strong> ${tickets.length}</div>
+            </div>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; border: 1px solid #cbd5e1;">
+            <thead>
+              <tr style="background: #f1f5f9; text-align: left;">
+                <th style="padding: 6px; border: 1px solid #cbd5e1;">Código</th>
+                <th style="padding: 6px; border: 1px solid #cbd5e1;">Hora</th>
+                <th style="padding: 6px; border: 1px solid #cbd5e1;">Asunto</th>
+                <th style="padding: 6px; border: 1px solid #cbd5e1;">Solicitante</th>
+                <th style="padding: 6px; border: 1px solid #cbd5e1;">Tel / WA</th>
+                <th style="padding: 6px; border: 1px solid #cbd5e1;">Categoría</th>
+                <th style="padding: 6px; border: 1px solid #cbd5e1;">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tickets.length === 0 ? `
+                <tr><td colspan="7" style="padding: 16px; text-align: center; color: #64748b;">No hay tickets registrados en esta fecha.</td></tr>
+              ` : tickets.map(t => `
+                <tr>
+                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0; font-weight: bold; font-family: monospace;">${t.id}</td>
+                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0;">${new Date(t.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</td>
+                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0;">${t.title}</td>
+                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0;">${t.requester.name}</td>
+                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0;">${t.requester.phone || '-'}</td>
+                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0;">${t.category}</td>
+                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0; font-weight: bold;">${t.status}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // Descarga de PDF Agenda Diaria
+    async function downloadDailyAgendaPdf() {
+      const dateStr = selectedDate || 'todos';
+      const btn = document.getElementById('btn-export-daily-pdf');
+      btn.disabled = true;
+      btn.textContent = '⏳ PDF...';
+
+      try {
+        const tempContainer = document.createElement('div');
+        tempContainer.innerHTML = buildDailyAgendaPdfHtml(currentTickets, dateStr);
+        document.body.appendChild(tempContainer);
+
+        const opt = {
+          margin: [8, 8, 8, 8],
+          filename: `Agenda_Tickets_${dateStr}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        if (window.html2pdf) {
+          await html2pdf().set(opt).from(tempContainer.firstElementChild).save();
+          showToast('Agenda en PDF descargada', 'success');
+        } else {
+          window.print();
+        }
+        document.body.removeChild(tempContainer);
+      } catch (err) {
+        showToast('Error generando PDF: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📄 PDF';
       }
     }
 
