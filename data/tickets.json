@@ -1,5 +1,32 @@
 [
   {
+    "id": "TCK-2026-9F912491",
+    "title": "Reporte de Incidencia Registrado",
+    "description": "Reporte enviado para atención por parte del Departamento de Sistemas.",
+    "category": "Incidencia",
+    "priority": "alta",
+    "status": "pendiente",
+    "requester": {
+      "name": "Usuario Solicitante",
+      "email": "auxiliarcontableLC1@buenaventuraresort.com",
+      "phone": ""
+    },
+    "createdAt": "2026-09-26T14:30:00.000Z",
+    "updatedAt": "2026-09-26T14:30:00.000Z",
+    "closedAt": null,
+    "history": [
+      {
+        "id": "hist-recup-1",
+        "type": "created",
+        "author": "solicitante",
+        "authorName": "Usuario Solicitante",
+        "message": "Ticket creado exitosamente y registrado en la agenda del día.",
+        "timestamp": "2026-09-26T14:30:00.000Z"
+      }
+    ],
+    "internalNotes": []
+  },
+  {
     "id": "TCK-2026-54F41085",
     "title": "Prueba automatica",
     "description": "Probando creacion",
