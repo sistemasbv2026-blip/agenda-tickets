@@ -17,27 +17,55 @@ function getTransporter() {
 
   // Detección automática optimizada para Gmail
   if ((host && host.includes('gmail')) || (user && user.toLowerCase().endsWith('@gmail.com'))) {
+    const isPort465 = port === 465;
     return nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: isPort465 ? 465 : 587,
+      secure: isPort465,
+      requireTLS: !isPort465,
       auth: {
         user: user.trim(),
         pass: pass.trim().replace(/\s+/g, '') // Eliminar espacios si copiaron la clave de 16 letras con espacios
       },
-      connectionTimeout: 15000,
-      greetingTimeout: 10000,
-      socketTimeout: 20000
+      connectionTimeout: 20000,
+      greetingTimeout: 15000,
+      socketTimeout: 25000,
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+  }
+
+  // Detección para Office 365 / Outlook
+  if ((host && (host.includes('office365') || host.includes('outlook'))) || (user && (user.toLowerCase().includes('outlook') || user.toLowerCase().includes('hotmail')))) {
+    return nodemailer.createTransport({
+      host: host || 'smtp.office365.com',
+      port: port || 587,
+      secure: false,
+      requireTLS: true,
+      auth: {
+        user: user.trim(),
+        pass: pass.trim()
+      },
+      connectionTimeout: 20000,
+      greetingTimeout: 15000,
+      socketTimeout: 25000,
+      tls: {
+        ciphers: 'SSLv3',
+        rejectUnauthorized: false
+      }
     });
   }
 
   return nodemailer.createTransport({
     host,
     port,
-    secure,
+    secure: port === 465,
     requireTLS: port === 587,
-    auth: { user, pass },
-    connectionTimeout: 12000, // 12 segundos máximo de espera
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
+    auth: { user: user.trim(), pass: pass.trim() },
+    connectionTimeout: 20000,
+    greetingTimeout: 15000,
+    socketTimeout: 25000,
     tls: {
       rejectUnauthorized: false
     }
@@ -71,24 +99,33 @@ const mailer = {
       throw new Error('La configuración SMTP está incompleta. Verifica servidor, usuario y contraseña.');
     }
 
-    await transporter.verify();
-
-    const info = await transporter.sendMail({
-      from: getSender(),
-      to: targetEmail,
-      subject: '✅ Prueba de Configuración de Correo - Agenda de Tickets',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-          <h2 style="color: #2563eb; margin-top: 0;">¡Conexión Exitosa! 🎉</h2>
-          <p>Este es un correo de prueba enviado desde tu <strong>Sistema de Agenda y Control de Tickets</strong>.</p>
-          <p>A partir de ahora, cuando el equipo de sistemas responda o actualice un ticket, la persona que lo creó recibirá una notificación automática por correo.</p>
-          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-          <small style="color: #64748b;">Departamento de Sistemas &bull; Notificación Automática</small>
-        </div>
-      `
-    });
-
-    return info;
+    try {
+      const info = await transporter.sendMail({
+        from: getSender(),
+        to: targetEmail,
+        subject: '✅ Prueba de Configuración de Correo - Agenda de Tickets',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h2 style="color: #2563eb; margin-top: 0;">¡Conexión Exitosa! 🎉</h2>
+            <p>Este es un correo de prueba enviado desde tu <strong>Sistema de Agenda y Control de Tickets</strong>.</p>
+            <p>A partir de ahora, cuando el equipo de sistemas responda o actualice un ticket, la persona que lo creó recibirá una notificación automática por correo.</p>
+            <p>Asimismo, los avisos de nuevos tickets llegarán a los correos registrados para el equipo de Sistemas.</p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+            <small style="color: #64748b;">Departamento de Sistemas &bull; Notificación Automática</small>
+          </div>
+        `
+      });
+      return info;
+    } catch (err) {
+      let msg = err.message || '';
+      if (msg.includes('535') || msg.includes('BadCredentials') || msg.includes('Username and Password not accepted') || err.code === 'EAUTH') {
+        throw new Error('Error de credenciales (535): Usuario o contraseña incorrectos. Si usas Gmail, recuerda que debes generar y usar una Contraseña de Aplicación de 16 letras desde https://myaccount.google.com/apppasswords (no tu contraseña normal).');
+      }
+      if (msg.includes('ETIMEDOUT') || msg.includes('ESOCKETTIMEDOUT')) {
+        throw new Error('Tiempo de conexión agotado al conectar al servidor SMTP. Revisa que el host y puerto no estén bloqueados.');
+      }
+      throw err;
+    }
   },
 
   // Notify requester when admin writes a response

@@ -262,7 +262,7 @@ app.post('/api/admin/smtp', requireAdmin, (req, res) => {
   }
 });
 
-// Test SMTP Configuration (con límite de 8 segundos para evitar cuelgues)
+// Test SMTP Configuration (con margen suficiente para resolución DNS y TLS)
 app.post('/api/admin/smtp/test', requireAdmin, async (req, res) => {
   try {
     const { testEmail } = req.body;
@@ -271,7 +271,7 @@ app.post('/api/admin/smtp/test', requireAdmin, async (req, res) => {
     }
 
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Tiempo de espera agotado al conectar con el servidor SMTP (revisa servidor, puerto o credenciales).')), 8000)
+      setTimeout(() => reject(new Error('Tiempo de espera agotado al conectar con el servidor SMTP (revisa servidor, puerto, credenciales o bloqueos del proveedor).')), 25000)
     );
 
     await Promise.race([
