@@ -15,7 +15,15 @@ const DEFAULT_CONFIG = {
   adminPin: '1234',
   companyName: 'Centro de Soporte & Reportes',
   categories: ['Soporte Técnico', 'Incidencia', 'Solicitud de Servicio', 'Facturación / Pagos', 'Mantenimiento', 'Otro'],
-  smtp: {}
+  smtp: {
+    host: 'smtp.gmail.com',
+    port: 465,
+    user: 'jwexecutiveoffice@gmail.com',
+    fromName: 'Departamento de Sistemas',
+    fromEmail: 'jwexecutiveoffice@gmail.com',
+    alertEmails: 'coordinadora.it@buenaventuraresort.com, Sistemas@buenaventuraresort.com'
+  },
+  publicBaseUrl: 'https://agenda-tickets.onrender.com'
 };
 
 // PostgreSQL Setup (if DATABASE_URL is provided, e.g. on Render)

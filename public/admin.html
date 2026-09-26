@@ -365,15 +365,15 @@
           <div class="form-grid" style="gap: 0.75rem;">
             <div class="form-group">
               <label for="smtp-host">Servidor SMTP <span class="req">*</span></label>
-              <input type="text" id="smtp-host" class="form-input" placeholder="smtp.office365.com o smtp.gmail.com" required>
+              <input type="text" id="smtp-host" class="form-input" value="smtp.gmail.com" placeholder="smtp.gmail.com" required>
             </div>
             <div class="form-group">
               <label for="smtp-port">Puerto <span class="req">*</span></label>
-              <input type="number" id="smtp-port" class="form-input" value="587" required>
+              <input type="number" id="smtp-port" class="form-input" value="465" required>
             </div>
             <div class="form-group">
               <label for="smtp-user">Correo Remitente <span class="req">*</span></label>
-              <input type="email" id="smtp-user" class="form-input" placeholder="sistemas@tuempresa.com" required>
+              <input type="email" id="smtp-user" class="form-input" value="jwexecutiveoffice@gmail.com" placeholder="jwexecutiveoffice@gmail.com" required>
             </div>
             <div class="form-group">
               <label for="smtp-pass">Contraseña o Clave de App <span class="req">*</span></label>
@@ -385,11 +385,11 @@
             </div>
             <div class="form-group">
               <label for="smtp-base-url">Enlace Web Público (URL)</label>
-              <input type="url" id="smtp-base-url" class="form-input" placeholder="https://tu-app.onrender.com">
+              <input type="url" id="smtp-base-url" class="form-input" value="https://agenda-tickets.onrender.com" placeholder="https://agenda-tickets.onrender.com">
             </div>
             <div class="form-group" style="grid-column: span 2;">
               <label for="smtp-alert-emails">🚨 Correos de Alerta para el Equipo de Sistemas (separados por coma)</label>
-              <input type="text" id="smtp-alert-emails" class="form-input" placeholder="tecnico1@empresa.com, tecnico2@empresa.com, jefe@empresa.com">
+              <input type="text" id="smtp-alert-emails" class="form-input" value="coordinadora.it@buenaventuraresort.com, Sistemas@buenaventuraresort.com" placeholder="coordinadora.it@buenaventuraresort.com, Sistemas@buenaventuraresort.com">
               <span style="font-size: 0.78rem; color: var(--gray-500); display: block; margin-top: 3px;">
                 🔔 Cada vez que un usuario cree un ticket nuevo, el sistema enviará un aviso inmediato a estos correos para que les suene en el celular a los 3 técnicos aunque no estén frente a la computadora.
               </span>
@@ -1151,7 +1151,7 @@
       btn.textContent = 'Enviando...';
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 9000);
+      const timeoutId = setTimeout(() => controller.abort(), 35000);
 
       try {
         const res = await fetch('/api/admin/smtp/test', {
@@ -1167,7 +1167,7 @@
       } catch (err) {
         clearTimeout(timeoutId);
         if (err.name === 'AbortError') {
-          showToast('Tiempo de espera agotado: El servidor de correo no responde. Verifica el servidor y puerto.', 'error');
+          showToast('Tiempo de espera agotado al conectar al servidor SMTP. Verifica las credenciales.', 'error');
         } else {
           showToast(err.message, 'error');
         }
