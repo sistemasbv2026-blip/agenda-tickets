@@ -21,7 +21,7 @@ const DEFAULT_CONFIG = {
     user: 'jwexecutiveoffice@gmail.com',
     fromName: 'Departamento de Sistemas',
     fromEmail: 'jwexecutiveoffice@gmail.com',
-    alertEmails: 'coordinadora.it@buenaventuraresort.com, Sistemas@buenaventuraresort.com'
+    alertEmails: 'coordinadora.it@buenaventuraresort.com'
   },
   publicBaseUrl: 'https://agenda-tickets.onrender.com'
 };
