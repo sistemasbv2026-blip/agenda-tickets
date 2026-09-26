@@ -312,6 +312,16 @@ app.get('/api/admin/export', requireAdmin, async (req, res) => {
   res.send(csvContent);
 });
 
+// Clear all tickets (Reset database to 0)
+app.post('/api/admin/tickets/clear-all', requireAdmin, async (req, res) => {
+  try {
+    const result = await db.clearAllTickets();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Error al limpiar la base de datos: ' + err.message });
+  }
+});
+
 // -------------------------------------------------------------
 // FRONTEND ROUTE HANDLERS
 // -------------------------------------------------------------

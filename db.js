@@ -547,6 +547,14 @@ const db = {
       repeatedIssues: repeated,
       tickets
     };
+  },
+
+  async clearAllTickets() {
+    if (pgPool) {
+      await pgPool.query('TRUNCATE TABLE tickets;');
+    }
+    saveTicketsLocal([]);
+    return { success: true, message: 'Todos los tickets han sido eliminados. Base de datos reseteada a 0.' };
   }
 };
 
