@@ -250,12 +250,39 @@
         <div>📞 <strong>Teléfono:</strong> <span id="modal-requester-phone">-</span> <span id="modal-whatsapp-badge"></span></div>
         <div>📁 <strong>Categoría:</strong> <span id="modal-category">-</span></div>
         <div>🕒 <strong>Creado:</strong> <span id="modal-created-at">-</span></div>
-        <div>🔗 <strong>Seguimiento:</strong> <a id="modal-public-link" href="#" target="_blank" style="color: var(--primary); text-decoration: underline;">Abrir vista pública</a></div>
+        <div>👨‍💻 <strong>Técnico Asignado:</strong> <span id="modal-assigned-to" style="font-weight: 700; color: #0369a1;">Sin asignar</span></div>
+        <div style="grid-column: span 2;">🔗 <strong>Seguimiento:</strong> <a id="modal-public-link" href="#" target="_blank" style="color: var(--primary); text-decoration: underline;">Abrir vista pública</a></div>
       </div>
 
       <div style="margin-bottom: 1.25rem;">
         <strong style="font-size: 0.85rem; color: var(--gray-700);">Descripción original:</strong>
         <div id="modal-ticket-desc" style="white-space: pre-wrap; font-size: 0.92rem; background: #fff; border: 1px solid var(--gray-200); padding: 0.85rem; border-radius: var(--radius-sm); margin-top: 0.35rem; max-height: 160px; overflow-y: auto;">-</div>
+      </div>
+
+      <!-- Cuadro de Resolución (Visible cuando el ticket está resuelto o cerrado) -->
+      <div id="modal-resolution-card" style="display: none; background: #ecfdf5; border: 1.5px solid #a7f3d0; border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+        <div style="font-weight: 700; font-size: 0.88rem; color: #065f46; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.4rem;">
+          ✅ ¿Qué fue lo que pasó y cómo se resolvió?
+        </div>
+        <div id="modal-resolution-text" style="font-size: 0.92rem; color: #047857; white-space: pre-wrap; line-height: 1.5;"></div>
+      </div>
+
+      <!-- Panel de Asignación / Tomar Ticket en Sistemas -->
+      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 270px;">
+          <span style="font-weight: 700; font-size: 0.88rem; color: #166534; white-space: nowrap;">👨‍💻 Asignar a Técnico:</span>
+          <select id="modal-tech-select" class="form-input" style="padding: 0.35rem 0.6rem; font-size: 0.85rem; flex: 1;">
+            <option value="">-- Sin asignar --</option>
+            <option value="Brianda Soto">Brianda Soto</option>
+            <option value="Técnico 2">Técnico 2</option>
+            <option value="Técnico 3">Técnico 3</option>
+            <option value="__custom__">+ Ingresar otro técnico...</option>
+          </select>
+          <button type="button" id="btn-assign-tech" class="btn btn-primary btn-sm">Asignar</button>
+        </div>
+        <button type="button" id="btn-take-ticket-fast" class="btn btn-secondary btn-sm" style="background: #e0f2fe; color: #0369a1; border-color: #bae6fd; font-weight: 700;">
+          🙋‍♀️ Tomar Ticket (Brianda Soto)
+        </button>
       </div>
 
       <!-- Barra de Acción Rápida de Cambio de Estado -->
@@ -320,6 +347,50 @@
         </div>
       </div>
 
+    </div>
+  </dialog>
+
+  <!-- Modal Obligatorio para Concluir / Resolver Ticket -->
+  <dialog id="resolve-modal" class="custom-modal" style="max-width: 560px;">
+    <div class="modal-header" style="background: #f8fafc; border-bottom: 1px solid var(--gray-200);">
+      <h3 id="resolve-modal-title" style="font-size: 1.15rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem;">
+        <span>📋</span> Conclusión del Ticket <span id="resolve-ticket-id" style="color: var(--primary);">TCK-XXXX</span>
+      </h3>
+      <button type="button" id="btn-close-resolve" class="btn btn-secondary btn-sm" style="font-size: 1.1rem; padding: 0.2rem 0.6rem;">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.85rem; color: #1e40af; line-height: 1.5;">
+        ⚠️ <strong>Obligatorio:</strong> Para registrar este ticket como <strong id="resolve-target-label">Resuelto</strong>, es obligatorio ingresar qué fue lo que pasó y la solución técnica implementada para el historial y reporte mensual.
+      </div>
+
+      <form id="resolve-form">
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label for="resolve-tech-name" style="font-weight: 700; font-size: 0.85rem;">👨‍💻 Técnico de Sistemas que concluye <span class="req">*</span></label>
+          <select id="resolve-tech-name" class="form-input" style="font-size: 0.88rem;" required>
+            <option value="Brianda Soto">Brianda Soto</option>
+            <option value="Técnico 2">Técnico 2</option>
+            <option value="Técnico 3">Técnico 3</option>
+            <option value="__custom__">+ Ingresar otro técnico...</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label for="resolve-explanation" style="font-weight: 700; font-size: 0.85rem;">
+            📝 ¿Qué fue lo que pasó y cómo se solucionó? <span class="req">*</span>
+          </label>
+          <textarea id="resolve-explanation" class="form-textarea" placeholder="Describe detalladamente qué falla se detectó, qué causó el problema y cuál fue la solución técnica ejecutada..." required style="min-height: 110px; font-size: 0.9rem; line-height: 1.5;"></textarea>
+          <span style="font-size: 0.78rem; color: var(--gray-500); display: block; margin-top: 4px;">
+            🔒 Este reporte se guardará en la base de datos, figurará en la auditoría mensual y se notificará por correo al solicitante.
+          </span>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button type="button" id="btn-cancel-resolve" class="btn btn-secondary">Cancelar</button>
+          <button type="submit" id="btn-confirm-resolve" class="btn btn-primary" style="background: #15803d; border-color: #15803d; font-weight: 700;">
+            ✅ Confirmar y Finalizar Ticket
+          </button>
+        </div>
+      </form>
     </div>
   </dialog>
 
@@ -748,6 +819,7 @@
           t.id.toLowerCase().includes(q) ||
           t.title.toLowerCase().includes(q) ||
           t.description.toLowerCase().includes(q) ||
+          (t.assignedTo && t.assignedTo.toLowerCase().includes(q)) ||
           (t.requester.name && t.requester.name.toLowerCase().includes(q))
         );
       }
@@ -780,6 +852,10 @@
         card.setAttribute('draggable', 'true');
         card.setAttribute('data-id', ticket.id);
 
+        const techBadge = ticket.assignedTo
+          ? `<span style="font-size: 0.74rem; background: #e0f2fe; color: #0369a1; padding: 2px 7px; border-radius: 4px; font-weight: 700; display: inline-flex; align-items: center; gap: 3px;">👨‍💻 ${ticket.assignedTo}</span>`
+          : `<span style="font-size: 0.74rem; background: #fef3c7; color: #92400e; padding: 2px 7px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px;">⚠️ Sin Asignar</span>`;
+
         card.innerHTML = `
           <div class="kanban-card-top">
             <span class="kanban-card-id">${ticket.id}</span>
@@ -787,6 +863,10 @@
           </div>
           <div class="kanban-card-title">${ticket.title}</div>
           <div class="kanban-card-desc">${ticket.description}</div>
+          <div style="margin: 0.45rem 0 0.25rem 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
+            ${techBadge}
+            ${ticket.resolution ? '<span style="font-size: 0.72rem; color: #15803d; font-weight: 700;" title="' + ticket.resolution.replace(/"/g, '&quot;') + '">✔ Solucionado</span>' : ''}
+          </div>
           <div class="kanban-card-footer">
             <span>👤 ${ticket.requester.name}</span>
             <span>🕒 ${formatRelativeTime(ticket.createdAt)}</span>
@@ -831,18 +911,133 @@
         const newStatus = targetCol.getAttribute('data-status');
 
         if (ticketId && newStatus) {
-          await updateTicketStatusApi(ticketId, newStatus, `Estado actualizado en tablero a ${newStatus}`);
+          handleStatusChangeRequest(ticketId, newStatus);
         }
       });
     });
 
-    // Update status API
-    async function updateTicketStatusApi(id, newStatus, comment = '') {
+    // Enrutador inteligente para cambios de estado: Exige explicación obligatoria para Resolver / Cerrar
+    function handleStatusChangeRequest(ticketId, newStatus) {
+      if (!ticketId || !newStatus) return;
+      const t = currentTickets.find(x => x.id === ticketId) || selectedTicket;
+      if (t && t.status === newStatus) return;
+
+      if (newStatus === 'resuelto' || newStatus === 'cerrado') {
+        openResolveModal(ticketId, newStatus, t);
+      } else {
+        const comment = newStatus === 'en_proceso'
+          ? 'Ticket puesto en proceso de atención técnica.'
+          : `Estado actualizado en tablero a ${newStatus}.`;
+        updateTicketStatusApi(ticketId, newStatus, comment);
+      }
+    }
+
+    // Modal de Resolución Obligatoria
+    let pendingResolveTicketId = null;
+    let pendingResolveStatus = null;
+
+    function openResolveModal(ticketId, targetStatus, ticketObj) {
+      pendingResolveTicketId = ticketId;
+      pendingResolveStatus = targetStatus;
+
+      document.getElementById('resolve-ticket-id').textContent = ticketId;
+      document.getElementById('resolve-target-label').textContent = targetStatus === 'resuelto' ? 'Resuelto' : 'Cerrado';
+      
+      const techSelect = document.getElementById('resolve-tech-name');
+      const assigned = ticketObj?.assignedTo || localStorage.getItem('default_tech_name') || 'Brianda Soto';
+      if (techSelect) {
+        let found = false;
+        for (let opt of techSelect.options) {
+          if (opt.value === assigned) {
+            techSelect.value = assigned;
+            found = true;
+            break;
+          }
+        }
+        if (!found && assigned) {
+          const opt = new Option(assigned, assigned);
+          techSelect.add(opt, 0);
+          techSelect.value = assigned;
+        }
+      }
+
+      const explainInput = document.getElementById('resolve-explanation');
+      explainInput.value = ticketObj?.resolution || '';
+      
+      const resolveModal = document.getElementById('resolve-modal');
+      resolveModal.showModal();
+      setTimeout(() => explainInput.focus(), 150);
+    }
+
+    // Formulario de Conclusión de Ticket (Obligatorio)
+    document.getElementById('resolve-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const explanation = document.getElementById('resolve-explanation').value.trim();
+      let techName = document.getElementById('resolve-tech-name').value.trim();
+
+      if (techName === '__custom__') {
+        const custom = prompt('Ingresa el nombre del técnico de sistemas:');
+        if (!custom || !custom.trim()) {
+          showToast('Debes ingresar el nombre del técnico de sistemas', 'warning');
+          return;
+        }
+        techName = custom.trim();
+      }
+
+      if (!explanation) {
+        showToast('⚠️ Es obligatorio ingresar qué fue lo que pasó y cómo se solucionó.', 'error');
+        document.getElementById('resolve-explanation').focus();
+        return;
+      }
+
+      if (!pendingResolveTicketId || !pendingResolveStatus) return;
+
       try {
+        const res = await fetch(`/api/admin/tickets/${pendingResolveTicketId}/status`, {
+          method: 'PATCH',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({
+            status: pendingResolveStatus,
+            comment: explanation,
+            assignedTo: techName,
+            adminName: techName
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al finalizar ticket');
+
+        document.getElementById('resolve-modal').close();
+        showToast(`✅ Ticket ${pendingResolveTicketId} concluido exitosamente`, 'success');
+        
+        if (techName) localStorage.setItem('default_tech_name', techName);
+
+        await loadDashboardData();
+        if (selectedTicket && selectedTicket.id === pendingResolveTicketId) {
+          openTicketModal(pendingResolveTicketId);
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    document.getElementById('btn-close-resolve').addEventListener('click', () => {
+      document.getElementById('resolve-modal').close();
+    });
+    document.getElementById('btn-cancel-resolve').addEventListener('click', () => {
+      document.getElementById('resolve-modal').close();
+    });
+
+    // Update status API
+    async function updateTicketStatusApi(id, newStatus, comment = '', assignedTo = null, adminName = null) {
+      try {
+        const bodyPayload = { status: newStatus, comment };
+        if (assignedTo) bodyPayload.assignedTo = assignedTo;
+        if (adminName) bodyPayload.adminName = adminName;
+
         const res = await fetch(`/api/admin/tickets/${id}/status`, {
           method: 'PATCH',
           headers: getAdminHeaders(),
-          body: JSON.stringify({ status: newStatus, comment })
+          body: JSON.stringify(bodyPayload)
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error al actualizar');
@@ -918,6 +1113,52 @@
         document.getElementById('modal-category').textContent = t.category;
         document.getElementById('modal-created-at').textContent = formatDate(t.createdAt);
         document.getElementById('modal-ticket-desc').textContent = t.description;
+
+        // Technician Assignment in Modal
+        const assignedToElem = document.getElementById('modal-assigned-to');
+        if (assignedToElem) {
+          if (t.assignedTo) {
+            assignedToElem.innerHTML = `👨‍💻 ${t.assignedTo}`;
+            assignedToElem.style.color = '#0369a1';
+          } else {
+            assignedToElem.innerHTML = '⚠️ Sin asignar';
+            assignedToElem.style.color = '#d97706';
+          }
+        }
+
+        const techSelect = document.getElementById('modal-tech-select');
+        if (techSelect) {
+          let found = false;
+          for (let opt of techSelect.options) {
+            if (opt.value === (t.assignedTo || '')) {
+              techSelect.value = t.assignedTo || '';
+              found = true;
+              break;
+            }
+          }
+          if (!found && t.assignedTo) {
+            const opt = new Option(t.assignedTo, t.assignedTo);
+            techSelect.add(opt, 1);
+            techSelect.value = t.assignedTo;
+          }
+        }
+
+        const myDefaultTech = localStorage.getItem('default_tech_name') || 'Brianda Soto';
+        const btnTakeFast = document.getElementById('btn-take-ticket-fast');
+        if (btnTakeFast) {
+          btnTakeFast.textContent = `🙋‍♀️ Tomar Ticket (${myDefaultTech})`;
+        }
+
+        // Resolution Display in Modal
+        const resCard = document.getElementById('modal-resolution-card');
+        const resText = document.getElementById('modal-resolution-text');
+        if (t.resolution && (t.status === 'resuelto' || t.status === 'cerrado')) {
+          resCard.style.display = 'block';
+          resText.textContent = t.resolution;
+        } else {
+          resCard.style.display = 'none';
+          resText.textContent = '';
+        }
 
         const publicLink = document.getElementById('modal-public-link');
         publicLink.href = `/ticket/${t.id}`;
@@ -997,9 +1238,60 @@
       btn.addEventListener('click', () => {
         if (!selectedTicket) return;
         const newStatus = btn.getAttribute('data-status');
-        updateTicketStatusApi(selectedTicket.id, newStatus, `Estado cambiado por administrador a ${newStatus}`);
+        handleStatusChangeRequest(selectedTicket.id, newStatus);
       });
     });
+
+    // Gestión de Asignación de Técnicos
+    async function executeTicketAssignment(techName) {
+      if (!selectedTicket) return;
+      if (!techName) {
+        showToast('Selecciona o ingresa el nombre del técnico de sistemas', 'warning');
+        return;
+      }
+      try {
+        const res = await fetch(`/api/admin/tickets/${selectedTicket.id}/assign`, {
+          method: 'PATCH',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ assignedTo: techName, adminName: techName })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al asignar');
+        
+        showToast(`✅ Ticket asignado a ${techName}`, 'success');
+        localStorage.setItem('default_tech_name', techName);
+        
+        await loadDashboardData();
+        openTicketModal(selectedTicket.id);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    const btnAssignTech = document.getElementById('btn-assign-tech');
+    if (btnAssignTech) {
+      btnAssignTech.addEventListener('click', () => {
+        const select = document.getElementById('modal-tech-select');
+        let val = select.value;
+        if (val === '__custom__') {
+          const custom = prompt('Ingresa el nombre del técnico de sistemas:');
+          if (!custom || !custom.trim()) return;
+          val = custom.trim();
+          const opt = new Option(val, val);
+          select.add(opt, 1);
+          select.value = val;
+        }
+        executeTicketAssignment(val);
+      });
+    }
+
+    const btnTakeTicketFast = document.getElementById('btn-take-ticket-fast');
+    if (btnTakeTicketFast) {
+      btnTakeTicketFast.addEventListener('click', () => {
+        const myTechName = localStorage.getItem('default_tech_name') || 'Brianda Soto';
+        executeTicketAssignment(myTechName);
+      });
+    }
 
     // Public reply submission (con envío por WhatsApp)
     document.getElementById('admin-reply-form').addEventListener('submit', async (e) => {
@@ -1694,6 +1986,7 @@
                   <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Fecha</th>
                   <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Asunto</th>
                   <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Solicitante</th>
+                  <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Técnico</th>
                   <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Categoría</th>
                   <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Prioridad</th>
                   <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Estado</th>
@@ -1706,10 +1999,18 @@
                     <td style="padding: 4px 6px; border: 1px solid #e2e8f0;">${new Date(t.createdAt).toLocaleDateString('es-ES')}</td>
                     <td style="padding: 4px 6px; border: 1px solid #e2e8f0;">${t.title}</td>
                     <td style="padding: 4px 6px; border: 1px solid #e2e8f0;">${t.requester.name}</td>
+                    <td style="padding: 4px 6px; border: 1px solid #e2e8f0; font-weight: 600; color: #0369a1;">${t.assignedTo || 'Sin Asignar'}</td>
                     <td style="padding: 4px 6px; border: 1px solid #e2e8f0;">${t.category}</td>
                     <td style="padding: 4px 6px; border: 1px solid #e2e8f0; text-transform: capitalize;">${t.priority}</td>
                     <td style="padding: 4px 6px; border: 1px solid #e2e8f0; font-weight: bold;">${t.status}</td>
                   </tr>
+                  ${t.resolution ? `
+                  <tr>
+                    <td colspan="8" style="padding: 3px 6px 4px 14px; background: #f0fdf4; border: 1px solid #e2e8f0; font-size: 9px; color: #166534;">
+                      <strong>✔ Solución Técnica:</strong> ${t.resolution}
+                    </td>
+                  </tr>
+                  ` : ''}
                 `).join('')}
               </tbody>
             </table>
@@ -1818,31 +2119,40 @@
             </div>
           </div>
 
-          <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; border: 1px solid #cbd5e1;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #cbd5e1;">
             <thead>
               <tr style="background: #f1f5f9; text-align: left;">
-                <th style="padding: 6px; border: 1px solid #cbd5e1;">Código</th>
-                <th style="padding: 6px; border: 1px solid #cbd5e1;">Hora</th>
-                <th style="padding: 6px; border: 1px solid #cbd5e1;">Asunto</th>
-                <th style="padding: 6px; border: 1px solid #cbd5e1;">Solicitante</th>
-                <th style="padding: 6px; border: 1px solid #cbd5e1;">Tel / WA</th>
-                <th style="padding: 6px; border: 1px solid #cbd5e1;">Categoría</th>
-                <th style="padding: 6px; border: 1px solid #cbd5e1;">Estado</th>
+                <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Código</th>
+                <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Hora</th>
+                <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Asunto</th>
+                <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Solicitante</th>
+                <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Tel / WA</th>
+                <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Técnico</th>
+                <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Categoría</th>
+                <th style="padding: 5px 6px; border: 1px solid #cbd5e1;">Estado</th>
               </tr>
             </thead>
             <tbody>
               ${tickets.length === 0 ? `
-                <tr><td colspan="7" style="padding: 16px; text-align: center; color: #64748b;">No hay tickets registrados en esta fecha.</td></tr>
+                <tr><td colspan="8" style="padding: 16px; text-align: center; color: #64748b;">No hay tickets registrados en esta fecha.</td></tr>
               ` : tickets.map(t => `
                 <tr>
-                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0; font-weight: bold; font-family: monospace;">${t.id}</td>
-                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0;">${new Date(t.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</td>
-                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0;">${t.title}</td>
-                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0;">${t.requester.name}</td>
-                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0;">${t.requester.phone || '-'}</td>
-                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0;">${t.category}</td>
-                  <td style="padding: 5px 6px; border: 1px solid #e2e8f0; font-weight: bold;">${t.status}</td>
+                  <td style="padding: 4px 6px; border: 1px solid #e2e8f0; font-weight: bold; font-family: monospace;">${t.id}</td>
+                  <td style="padding: 4px 6px; border: 1px solid #e2e8f0;">${new Date(t.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</td>
+                  <td style="padding: 4px 6px; border: 1px solid #e2e8f0;">${t.title}</td>
+                  <td style="padding: 4px 6px; border: 1px solid #e2e8f0;">${t.requester.name}</td>
+                  <td style="padding: 4px 6px; border: 1px solid #e2e8f0;">${t.requester.phone || '-'}</td>
+                  <td style="padding: 4px 6px; border: 1px solid #e2e8f0; font-weight: 600; color: #0369a1;">${t.assignedTo || 'Sin Asignar'}</td>
+                  <td style="padding: 4px 6px; border: 1px solid #e2e8f0;">${t.category}</td>
+                  <td style="padding: 4px 6px; border: 1px solid #e2e8f0; font-weight: bold;">${t.status}</td>
                 </tr>
+                ${t.resolution ? `
+                <tr>
+                  <td colspan="8" style="padding: 3px 6px 4px 14px; background: #f0fdf4; border: 1px solid #e2e8f0; font-size: 9px; color: #166534;">
+                    <strong>✔ Solución:</strong> ${t.resolution}
+                  </td>
+                </tr>
+                ` : ''}
               `).join('')}
             </tbody>
           </table>

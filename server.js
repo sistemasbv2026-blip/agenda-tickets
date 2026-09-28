@@ -158,9 +158,18 @@ app.get('/api/admin/tickets/:id', requireAdmin, async (req, res) => {
 // Update ticket status
 app.patch('/api/admin/tickets/:id/status', requireAdmin, async (req, res) => {
   try {
-    const { status, comment, adminName } = req.body;
+    const { status, comment, adminName, assignedTo } = req.body;
+
+    if ((status === 'resuelto' || status === 'cerrado') && (!comment || !comment.trim())) {
+      return res.status(400).json({ error: 'Para resolver o cerrar un ticket es obligatorio ingresar la explicación de qué fue lo que pasó y cómo se solucionó.' });
+    }
+
     const oldTicket = await db.getTicketById(req.params.id);
     const oldStatus = oldTicket ? oldTicket.status : '';
+
+    if (assignedTo) {
+      await db.assignTicket(req.params.id, assignedTo, adminName || 'Departamento de Sistemas');
+    }
 
     const ticket = await db.updateTicketStatus(req.params.id, status, comment, adminName || 'Departamento de Sistemas');
 
@@ -169,6 +178,17 @@ app.patch('/api/admin/tickets/:id/status', requireAdmin, async (req, res) => {
       console.warn('Error al enviar notificación de cambio de estado por correo:', err.message);
     });
 
+    res.json({ success: true, ticket });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Assign ticket to technician
+app.patch('/api/admin/tickets/:id/assign', requireAdmin, async (req, res) => {
+  try {
+    const { assignedTo, adminName } = req.body;
+    const ticket = await db.assignTicket(req.params.id, assignedTo, adminName || 'Departamento de Sistemas');
     res.json({ success: true, ticket });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -290,7 +310,7 @@ app.get('/api/admin/export', requireAdmin, async (req, res) => {
   const { date, status, month } = req.query;
   const tickets = await db.getTickets({ date, status, month });
 
-  const headers = ['ID', 'Fecha Creacion', 'Titulo', 'Categoria', 'Prioridad', 'Estado', 'Solicitante', 'Email', 'Telefono', 'Fecha Cierre'];
+  const headers = ['ID', 'Fecha Creacion', 'Titulo', 'Categoria', 'Prioridad', 'Estado', 'Tecnico Asignado', 'Solicitante', 'Email', 'Telefono', 'Fecha Cierre', 'Solucion / Explicacion'];
   const rows = tickets.map(t => [
     `"${t.id}"`,
     `"${new Date(t.createdAt).toLocaleString('es-ES')}"`,
@@ -298,10 +318,12 @@ app.get('/api/admin/export', requireAdmin, async (req, res) => {
     `"${t.category}"`,
     `"${t.priority}"`,
     `"${t.status}"`,
+    `"${(t.assignedTo || 'Sin Asignar').replace(/"/g, '""')}"`,
     `"${t.requester.name.replace(/"/g, '""')}"`,
     `"${(t.requester.email || '').replace(/"/g, '""')}"`,
     `"${(t.requester.phone || '').replace(/"/g, '""')}"`,
-    `"${t.closedAt ? new Date(t.closedAt).toLocaleString('es-ES') : ''}"`
+    `"${t.closedAt ? new Date(t.closedAt).toLocaleString('es-ES') : ''}"`,
+    `"${(t.resolution || '').replace(/"/g, '""')}"`
   ]);
 
   const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');

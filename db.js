@@ -15,6 +15,7 @@ const DEFAULT_CONFIG = {
   adminPin: '1234',
   companyName: 'Centro de Soporte & Reportes',
   categories: ['Soporte Técnico', 'Incidencia', 'Solicitud de Servicio', 'Facturación / Pagos', 'Mantenimiento', 'Otro'],
+  technicians: ['Brianda Soto', 'Técnico 2', 'Técnico 3'],
   smtp: {
     host: 'smtp.gmail.com',
     port: 465,
@@ -59,6 +60,8 @@ if (databaseUrl) {
           history JSONB NOT NULL,
           internal_notes JSONB NOT NULL
         );
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS assigned_to TEXT;
+        ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolution TEXT;
         CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at);
         CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
       `);
@@ -211,6 +214,8 @@ const db = {
       category: category || 'Incidencia',
       priority: priority || 'media',
       status: 'pendiente',
+      assignedTo: null,
+      resolution: null,
       requester: {
         name: requester.name.trim(),
         email: (requester.email || '').trim(),
@@ -234,9 +239,9 @@ const db = {
 
     if (pgPool) {
       await pgPool.query(`
-        INSERT INTO tickets (id, title, description, category, priority, status, requester, created_at, updated_at, closed_at, history, internal_notes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      `, [newTicket.id, newTicket.title, newTicket.description, newTicket.category, newTicket.priority, newTicket.status, JSON.stringify(newTicket.requester), newTicket.createdAt, newTicket.updatedAt, newTicket.closedAt, JSON.stringify(newTicket.history), JSON.stringify(newTicket.internalNotes)]);
+        INSERT INTO tickets (id, title, description, category, priority, status, requester, created_at, updated_at, closed_at, history, internal_notes, assigned_to, resolution)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      `, [newTicket.id, newTicket.title, newTicket.description, newTicket.category, newTicket.priority, newTicket.status, JSON.stringify(newTicket.requester), newTicket.createdAt, newTicket.updatedAt, newTicket.closedAt, JSON.stringify(newTicket.history), JSON.stringify(newTicket.internalNotes), newTicket.assignedTo, newTicket.resolution]);
     } else {
       const tickets = getAllTicketsLocal();
       tickets.unshift(newTicket);
@@ -260,6 +265,8 @@ const db = {
         category: r.category,
         priority: r.priority,
         status: r.status,
+        assignedTo: r.assigned_to || null,
+        resolution: r.resolution || null,
         requester: r.requester,
         createdAt: r.created_at.toISOString(),
         updatedAt: r.updated_at.toISOString(),
@@ -301,6 +308,8 @@ const db = {
         category: r.category,
         priority: r.priority,
         status: r.status,
+        assignedTo: r.assigned_to || null,
+        resolution: r.resolution || null,
         requester: r.requester,
         createdAt: r.created_at.toISOString(),
         updatedAt: r.updated_at.toISOString(),
@@ -315,6 +324,7 @@ const db = {
           t.id.toLowerCase().includes(q) ||
           t.title.toLowerCase().includes(q) ||
           t.description.toLowerCase().includes(q) ||
+          (t.assignedTo && t.assignedTo.toLowerCase().includes(q)) ||
           (t.requester.name && t.requester.name.toLowerCase().includes(q)) ||
           (t.requester.email && t.requester.email.toLowerCase().includes(q)) ||
           (t.requester.phone && t.requester.phone.includes(q))
@@ -341,6 +351,7 @@ const db = {
           t.id.toLowerCase().includes(q) ||
           t.title.toLowerCase().includes(q) ||
           t.description.toLowerCase().includes(q) ||
+          (t.assignedTo && t.assignedTo.toLowerCase().includes(q)) ||
           (t.requester.name && t.requester.name.toLowerCase().includes(q)) ||
           (t.requester.email && t.requester.email.toLowerCase().includes(q)) ||
           (t.requester.phone && t.requester.phone.includes(q))
@@ -357,6 +368,10 @@ const db = {
       throw new Error(`Estado no válido: ${newStatus}`);
     }
 
+    if ((newStatus === 'resuelto' || newStatus === 'cerrado') && (!comment || !comment.trim())) {
+      throw new Error('Para resolver o cerrar un ticket es obligatorio ingresar la explicación de qué fue lo que pasó y cómo se resolvió.');
+    }
+
     const ticket = await this.getTicketById(id);
     if (!ticket) throw new Error('Ticket no encontrado');
 
@@ -365,9 +380,10 @@ const db = {
 
     ticket.status = newStatus;
     ticket.updatedAt = now;
-    if (newStatus === 'cerrado' && !ticket.closedAt) {
-      ticket.closedAt = now;
-    } else if (newStatus !== 'cerrado') {
+    if (newStatus === 'cerrado' || newStatus === 'resuelto') {
+      ticket.resolution = comment.trim();
+      if (!ticket.closedAt) ticket.closedAt = now;
+    } else {
       ticket.closedAt = null;
     }
 
@@ -385,9 +401,51 @@ const db = {
     if (pgPool) {
       await pgPool.query(`
         UPDATE tickets
-        SET status = $1, updated_at = $2, closed_at = $3, history = $4
+        SET status = $1, updated_at = $2, closed_at = $3, history = $4, resolution = $5
+        WHERE UPPER(id) = $6
+      `, [ticket.status, ticket.updatedAt, ticket.closedAt, JSON.stringify(ticket.history), ticket.resolution || null, String(id).toUpperCase()]);
+    } else {
+      const tickets = getAllTicketsLocal();
+      const idx = tickets.findIndex(t => t.id.toUpperCase() === String(id).toUpperCase());
+      if (idx !== -1) {
+        tickets[idx] = ticket;
+        saveTicketsLocal(tickets);
+      }
+    }
+
+    return ticket;
+  },
+
+  async assignTicket(id, assignedTo, adminName = 'Equipo de Sistemas') {
+    const ticket = await this.getTicketById(id);
+    if (!ticket) throw new Error('Ticket no encontrado');
+
+    const now = new Date().toISOString();
+    ticket.assignedTo = assignedTo ? assignedTo.trim() : null;
+    ticket.updatedAt = now;
+
+    // Si aún está en 'pendiente', pasa automáticamente a 'en_proceso' al ser tomado por un técnico
+    let statusMsg = '';
+    if (ticket.status === 'pendiente' && ticket.assignedTo) {
+      ticket.status = 'en_proceso';
+      statusMsg = ' (Estado cambiado a En Proceso)';
+    }
+
+    ticket.history.push({
+      id: crypto.randomUUID(),
+      type: 'assignment',
+      author: 'admin',
+      authorName: adminName,
+      message: ticket.assignedTo ? `Ticket tomado / asignado a: ${ticket.assignedTo}${statusMsg}` : 'Ticket desasignado.',
+      timestamp: now
+    });
+
+    if (pgPool) {
+      await pgPool.query(`
+        UPDATE tickets
+        SET assigned_to = $1, status = $2, updated_at = $3, history = $4
         WHERE UPPER(id) = $5
-      `, [ticket.status, ticket.updatedAt, ticket.closedAt, JSON.stringify(ticket.history), String(id).toUpperCase()]);
+      `, [ticket.assignedTo, ticket.status, ticket.updatedAt, JSON.stringify(ticket.history), String(id).toUpperCase()]);
     } else {
       const tickets = getAllTicketsLocal();
       const idx = tickets.findIndex(t => t.id.toUpperCase() === String(id).toUpperCase());

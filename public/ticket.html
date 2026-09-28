@@ -99,13 +99,27 @@
 
       </div>
 
+      <!-- Solución Técnica / Cierre de Incidencia (Visible si está resuelto o cerrado) -->
+      <div id="ticket-resolution-card" class="surface-card" style="display: none; background: #f0fdf4; border: 1.5px solid #86efac; margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.4rem; color: #166534; display: flex; align-items: center; gap: 0.5rem;">
+          <span>✅</span> Solución Técnica y Conclusión de Incidencia
+        </h3>
+        <p style="font-size: 0.85rem; color: #15803d; margin-bottom: 0.75rem;">
+          El personal del Departamento de Sistemas ha concluido la atención de este caso:
+        </p>
+        <div id="ticket-resolution-text" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; color: #14532d; background: #ffffff; padding: 1rem 1.25rem; border-radius: var(--radius-sm); border: 1px solid #bbf7d0; font-weight: 500;">
+          -
+        </div>
+      </div>
+
       <!-- Detalle del Reporte Original -->
       <div class="surface-card" style="margin-bottom: 1.5rem;">
         <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--gray-800);">
           📋 Descripción del Reporte
         </h3>
-        <div style="display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--gray-600);">
+        <div style="display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--gray-600); flex-wrap: wrap;">
           <span><strong>Categoría:</strong> <span id="ticket-category">-</span></span>
+          <span><strong>Técnico Encargado:</strong> <span id="ticket-assigned-to" style="font-weight: 700; color: #0369a1;">Departamento de Sistemas</span></span>
           <span><strong>Última actualización:</strong> <span id="ticket-updated-at">-</span></span>
         </div>
         <div id="ticket-desc" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; color: var(--gray-700); background: var(--gray-50); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--gray-200);">
@@ -196,6 +210,22 @@
       document.getElementById('ticket-updated-at').textContent = formatRelativeTime(t.updatedAt);
       document.getElementById('ticket-category').textContent = t.category;
       document.getElementById('ticket-desc').textContent = t.description;
+
+      // Técnico Encargado
+      const assignedElem = document.getElementById('ticket-assigned-to');
+      if (assignedElem) {
+        assignedElem.textContent = t.assignedTo || 'Departamento de Sistemas';
+      }
+
+      // Cuadro de Solución Técnica
+      const resCard = document.getElementById('ticket-resolution-card');
+      const resText = document.getElementById('ticket-resolution-text');
+      if (t.resolution && (t.status === 'resuelto' || t.status === 'cerrado')) {
+        resCard.style.display = 'block';
+        resText.textContent = t.resolution;
+      } else {
+        resCard.style.display = 'none';
+      }
 
       // Badges
       document.getElementById('ticket-status-badge').innerHTML = getStatusBadge(t.status);
