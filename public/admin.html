@@ -406,7 +406,6 @@
       <div style="display: flex; gap: 0.5rem; border-bottom: 2px solid var(--gray-200); margin-bottom: 1.25rem;">
         <button type="button" class="tab-btn active" id="tab-btn-pin" onclick="switchSettingsTab('pin')">🔒 PIN de Sistemas</button>
         <button type="button" class="tab-btn" id="tab-btn-smtp" onclick="switchSettingsTab('smtp')">✉️ Correo & Alertas</button>
-        <button type="button" class="tab-btn" id="tab-btn-database" onclick="switchSettingsTab('database')">🗑️ Base de Datos</button>
       </div>
 
       <!-- Tab PIN -->
@@ -481,24 +480,6 @@
           <input type="email" id="test-email-input" class="form-input" value="soporte.it@buenaventuraresort.com" placeholder="soporte.it@buenaventuraresort.com">
           <button type="button" id="btn-send-test-email" class="btn btn-secondary" style="white-space: nowrap;">Enviar Prueba</button>
         </div>
-      </div>
-
-      <!-- Tab Base de Datos -->
-      <div id="settings-tab-database" style="display: none;">
-        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-bottom: 1.25rem;">
-          <h4 style="color: #991b1b; font-size: 0.95rem; font-weight: 700; margin: 0 0 6px 0; display: flex; align-items: center; gap: 0.4rem;">
-            ⚠️ Zona de Peligro: Reiniciar Base de Datos a 0
-          </h4>
-          <p style="font-size: 0.85rem; color: #7f1d1d; margin: 0 0 10px 0; line-height: 1.5;">
-            Esta acción eliminará <strong>todos los tickets de prueba registrados en el sistema</strong> para dejar los contadores y reportes completamente en <strong>0</strong>, listos para producción.
-          </p>
-          <p style="font-size: 0.8rem; color: #991b1b; margin: 0; font-weight: 600;">
-            🔒 Tu PIN de acceso y tu configuración de correo NO se borrarán. Solo se eliminan los tickets.
-          </p>
-        </div>
-        <button type="button" id="btn-clear-all-tickets" class="btn btn-danger btn-block" style="padding: 12px 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-          🗑️ Eliminar Todos los Tickets y Dejar en 0
-        </button>
       </div>
 
     </div>
@@ -1389,43 +1370,10 @@
     window.switchSettingsTab = function(tab) {
       document.getElementById('tab-btn-pin').classList.toggle('active', tab === 'pin');
       document.getElementById('tab-btn-smtp').classList.toggle('active', tab === 'smtp');
-      document.getElementById('tab-btn-database').classList.toggle('active', tab === 'database');
       document.getElementById('settings-tab-pin').style.display = tab === 'pin' ? 'block' : 'none';
       document.getElementById('settings-tab-smtp').style.display = tab === 'smtp' ? 'block' : 'none';
-      document.getElementById('settings-tab-database').style.display = tab === 'database' ? 'block' : 'none';
       if (tab === 'smtp') loadSmtpSettings();
     };
-
-    // Limpiar Base de Datos a 0 Tickets
-    const btnClearAllTickets = document.getElementById('btn-clear-all-tickets');
-    if (btnClearAllTickets) {
-      btnClearAllTickets.addEventListener('click', async () => {
-        const confirmed = confirm('¿Estás COMPLETAMENTE SEGURO de que deseas borrar TODOS los tickets de prueba para dejar la base de datos en 0? Esta acción no se puede deshacer.');
-        if (!confirmed) return;
-
-        btnClearAllTickets.disabled = true;
-        btnClearAllTickets.textContent = 'Limpiando base de datos...';
-
-        try {
-          const res = await fetch('/api/admin/tickets/clear-all', {
-            method: 'POST',
-            headers: getAdminHeaders()
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Error al limpiar la base de datos');
-
-          knownTicketIds.clear();
-          showToast('✅ Base de datos limpia con éxito. Ahora está en 0 tickets.', 'success');
-          settingsModal.close();
-          loadDashboardData();
-        } catch (err) {
-          showToast(err.message, 'error');
-        } finally {
-          btnClearAllTickets.disabled = false;
-          btnClearAllTickets.textContent = '🗑️ Eliminar Todos los Tickets y Dejar en 0';
-        }
-      });
-    }
 
     async function loadSmtpSettings() {
       try {
