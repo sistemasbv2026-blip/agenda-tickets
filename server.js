@@ -84,6 +84,8 @@ app.get('/api/tickets/:id', async (req, res) => {
     priority: ticket.priority,
     status: ticket.status,
     requesterName: ticket.requester.name,
+    assignedTo: ticket.assignedTo || null,
+    resolution: ticket.resolution || null,
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt,
     closedAt: ticket.closedAt,
